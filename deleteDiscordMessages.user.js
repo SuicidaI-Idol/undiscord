@@ -11,10 +11,11 @@
 // @license         MIT
 // @namespace       https://github.com/victornpb/deleteDiscordMessages
 // @icon            https://victornpb.github.io/undiscord/images/icon128.png
-// @downloadURL     https://raw.githubusercontent.com/victornpb/undiscord/master/deleteDiscordMessages.user.js
 // @contributionURL https://www.buymeacoffee.com/vitim
 // @grant           none
 // @attribution     Original project (https://github.com/victornpb/undiscord)
+// @downloadURL https://update.greasyfork.org/scripts/406540/Undiscord.user.js
+// @updateURL https://update.greasyfork.org/scripts/406540/Undiscord.meta.js
 // ==/UserScript==
 (function () {
 	'use strict';
@@ -123,12 +124,131 @@
 #undiscord .importJson { display: flex; flex-direction: row; }
 #undiscord .importJson button { margin-left: 5px; width: fit-content; }
 `);
+var undiscordUiCss = (`
+/* ===== Undiscord : UI palette stable (ne dépend pas du thème Discord) ===== */
+#undiscord{
+  --u-bg: #0f1115;
+  --u-panel: #151822;
+  --u-panel2: #10131a;
+  --u-border: rgba(255,255,255,.10);
+  --u-text: rgba(255,255,255,.92);
+  --u-muted: rgba(255,255,255,.65);
+  --u-link: #7ab7ff;
+  --u-btn: #2b3245;
+  --u-btn-hover: #3a4460;
+  --u-danger: #b83b3b;
+  --u-danger-hover: #d04b4b;
+  --u-input: #0c0f15;
+  --u-focus: rgba(122,183,255,.35);
+
+  background: var(--u-bg) !important;
+  color: var(--u-text) !important;
+  border: 1px solid var(--u-border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 16px 60px rgba(0,0,0,.55) !important;
+}
+
+/* Header */
+#undiscord .header{
+  background: var(--u-panel) !important;
+  color: var(--u-text) !important;
+  border-bottom: 1px solid var(--u-border) !important;
+}
+#undiscord .header h3{ color: var(--u-text) !important; }
+#undiscord .header span{ color: var(--u-muted) !important; }
+#undiscord .header .vert-divider{ background: var(--u-border) !important; }
+#undiscord .header .icon{ color: var(--u-muted) !important; }
+#undiscord .header .icon:hover{ color: var(--u-text) !important; }
+
+/* Layout */
+#undiscord .sidebar{
+  background: var(--u-panel2) !important;
+  border-right: 1px solid var(--u-border) !important;
+}
+#undiscord .main{
+  background: var(--u-bg) !important;
+}
+
+/* Texts */
+#undiscord summary{ color: var(--u-text) !important; }
+#undiscord legend,
+#undiscord label{ color: var(--u-muted) !important; }
+#undiscord .sectionDescription{ color: var(--u-muted) !important; }
+#undiscord .info{ color: var(--u-muted) !important; }
+#undiscord a{ color: var(--u-link) !important; }
+
+/* Inputs */
+#undiscord input,
+#undiscord .input,
+#undiscord input[type="text"],
+#undiscord input[type="search"],
+#undiscord input[type="password"],
+#undiscord input[type="datetime-local"],
+#undiscord input[type="number"]{
+  background: var(--u-input) !important;
+  color: var(--u-text) !important;
+  border: 1px solid var(--u-border) !important;
+  border-radius: 10px !important;
+}
+#undiscord input:focus{
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--u-focus) !important;
+  border-color: rgba(122,183,255,.6) !important;
+}
+
+/* Buttons */
+#undiscord button{
+  background: var(--u-btn) !important;
+  color: var(--u-text) !important;
+  border: 1px solid var(--u-border) !important;
+  border-radius: 10px !important;
+}
+#undiscord button:hover{
+  background: var(--u-btn-hover) !important;
+}
+#undiscord button.danger{
+  background: var(--u-danger) !important;
+  border-color: rgba(255,255,255,.12) !important;
+}
+#undiscord button.danger:hover{
+  background: var(--u-danger-hover) !important;
+}
+
+/* Toolbars */
+#undiscord .tbar{
+  background: var(--u-panel) !important;
+  border-bottom: 1px solid var(--u-border) !important;
+}
+#undiscord .tbar.footer{
+  border-top: 1px solid var(--u-border) !important;
+  border-bottom: none !important;
+}
+
+/* Log */
+#undiscord #logArea{
+  background: transparent !important;
+  color: var(--u-text) !important;
+}
+#undiscord .log-warn{ color: #ffcc66 !important; }
+#undiscord .log-error{ color: #ff6b6b !important; }
+#undiscord .log-success{ color: #6bff95 !important; }
+#undiscord .log-info{ color: #78d6ff !important; }
+#undiscord .log-verb{ color: rgba(255,255,255,.55) !important; }
+
+/* Progress */
+#undiscord progress{
+  background: rgba(255,255,255,.08) !important;
+}
+#undiscord progress::-webkit-progress-bar{
+  background: rgba(255,255,255,.08) !important;
+}
+`);
 
 	var dragCss = (`
 [name^="grab-"] { position: absolute; --size: 6px; --corner-size: 16px; --offset: -1px; z-index: 9; }
 [name^="grab-"]:hover{ background: rgba(128,128,128,0.1); }
 [name="grab-t"] { top: 0px; left: var(--corner-size); right: var(--corner-size); height: var(--size); margin-top: var(--offset); cursor: ns-resize; }
-[name="grab-r"] { top: var(--corner-size); bottom: var(--corner-size); right: 0px; width: var(--size); margin-right: var(--offset); 
+[name="grab-r"] { top: var(--corner-size); bottom: var(--corner-size); right: 0px; width: var(--size); margin-right: var(--offset);
   cursor: ew-resize; }
 [name="grab-b"] { bottom: 0px; left: var(--corner-size); right: var(--corner-size); height: var(--size); margin-bottom: var(--offset); cursor: ns-resize; }
 [name="grab-l"] { top: var(--corner-size); bottom: var(--corner-size); left: 0px; width: var(--size); margin-left: var(--offset); cursor: ew-resize; }
@@ -1242,6 +1362,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  insertCss(themeCss);
 	  insertCss(mainCss);
 	  insertCss(dragCss);
+    insertCss(undiscordUiCss);
 
 	  // create undiscord window
 	  const undiscordUI = replaceInterpolations(undiscordTemplate, {
@@ -1258,10 +1379,25 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  // create undiscord Trash icon
 	  ui.undiscordBtn = createElm(buttonHtml);
 	  ui.undiscordBtn.onclick = toggleWindow;
-	  function mountBtn() {
-	    const toolbar = document.querySelector('#app-mount [class*="-toolbar"]');
-	    if (toolbar) toolbar.appendChild(ui.undiscordBtn);
-	  }
+    function mountBtn() {
+      // 1) Cas DM : toolbar contient la barre de recherche (loupe) => on place APRÈS cette search
+      const dmToolbar = Array.from(document.querySelectorAll('#app-mount [class*="toolbar_"]'))
+        .find(tb => tb.querySelector('[aria-label="Rechercher"]'));
+      if (dmToolbar) {
+        const search = dmToolbar.querySelector('[class^="search__"]');
+        if (search && !dmToolbar.contains(ui.undiscordBtn)) {
+          dmToolbar.insertBefore(ui.undiscordBtn, search.nextSibling); // à droite de la loupe
+        }
+        return;
+      }
+
+      // 2) Cas serveur : fallback sur l'ancien comportement (mais en évitant les doublons)
+      const toolbar = document.querySelector('#app-mount [class*="-toolbar"], #app-mount [class*="toolbar_"]');
+      if (toolbar && !toolbar.contains(ui.undiscordBtn)) {
+        toolbar.appendChild(ui.undiscordBtn);
+      }
+    }
+
 	  mountBtn();
 	  // watch for changes and re-mount button if necessary
 	  const discordElm = document.querySelector('#app-mount');
@@ -1274,7 +1410,6 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    }, 3000);
 	  });
 	  observer.observe(discordElm, { attributes: false, childList: true, subtree: true });
-
 	  function toggleWindow() {
 	    if (ui.undiscordWindow.style.display !== 'none') {
 	      ui.undiscordWindow.style.display = 'none';
@@ -1465,14 +1600,14 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  //advanced
 	  const searchDelay = parseInt($('input#searchDelay').value.trim());
 	  const deleteDelay = parseInt($('input#deleteDelay').value.trim());
-	 
+
 	  // token
 	  const authToken = $('input#token').value.trim() || fillToken();
 	  if (!authToken) return; // get token already logs an error.
-	  
+
 	  // validate input
 	  if (!guildId) return log.error('You must fill the "Server ID" field!');
-	 
+
 	  // clear logArea
 	  ui.logArea.innerHTML = '';
 
