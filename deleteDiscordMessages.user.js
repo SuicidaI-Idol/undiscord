@@ -124,6 +124,49 @@
 #undiscord .importJson { display: flex; flex-direction: row; }
 #undiscord .importJson button { margin-left: 5px; width: fit-content; }
 `);
+var contrastFixCss = (`
+/* ---- Undiscord contrast fix (Discord themes/updates) ---- */
+#undiscord { color: var(--text-normal) !important; background: var(--background-secondary) !important; }
+
+#undiscord .header {
+  background: var(--background-tertiary) !important;
+  color: var(--header-primary) !important;
+}
+
+#undiscord .sidebar {
+  background: var(--background-secondary) !important;
+}
+
+#undiscord summary { color: var(--header-primary) !important; }
+
+#undiscord legend,
+#undiscord label,
+#undiscord .sectionDescription {
+  color: var(--text-normal) !important;
+}
+
+#undiscord .info { color: var(--text-muted) !important; }
+
+#undiscord #logArea { color: var(--text-normal) !important; }
+
+#undiscord a { color: var(--text-link) !important; }
+
+#undiscord input,
+#undiscord .input,
+#undiscord input[type="text"],
+#undiscord input[type="search"],
+#undiscord input[type="password"],
+#undiscord input[type="datetime-local"],
+#undiscord input[type="number"] {
+  color: var(--text-normal) !important;
+  background: var(--background-primary) !important;
+  border-color: var(--background-modifier-accent) !important;
+}
+
+#undiscord .main {
+  background: var(--background-primary) !important;
+}
+`);
 var undiscordUiCss = (`
 /* ===== Undiscord : UI palette stable (ne dépend pas du thème Discord) ===== */
 #undiscord{
@@ -242,6 +285,13 @@ var undiscordUiCss = (`
 #undiscord progress::-webkit-progress-bar{
   background: rgba(255,255,255,.08) !important;
 }
+/* Hide authorID */
+#undiscord.hide-author #authorId,
+#undiscord.hide-author #authorId.priv {
+  -webkit-text-security: disc !important;
+  text-security: disc !important;
+}
+
 `);
 
 	var dragCss = (`
@@ -497,7 +547,11 @@ var undiscordUiCss = (`
                     <button id="stop" class="sizeMedium" title="Stop the deletion process" disabled>🛑 Stop</button>
                     <button id="clear" class="sizeMedium">Clear log</button>
                     <label class="row" title="Hide sensitive information on your screen for taking screenshots">
-                        <input id="redact" type="checkbox" checked> Streamer mode
+                      <input id="redact" type="checkbox" checked> Streamer mode
+                    </label>
+
+                    <label class="row" title="Always hide Author ID field even if Streamer mode is OFF" style="margin-left:10px;">
+                      <input id="alwaysHideAuthor" type="checkbox" checked> Hide Author ID
                     </label>
                 </div>
                 <div class="row">
@@ -1373,6 +1427,55 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  ui.undiscordWindow = createElm(undiscordUI);
 	  document.body.appendChild(ui.undiscordWindow);
 
+    // ---------- Auto update IDs on conversation change ----------
+    function isUndiscordOpen() {
+      return ui.undiscordWindow && ui.undiscordWindow.style.display !== 'none';
+    }
+
+    let lastRoute = location.pathname;
+
+    function onConversationChange() {
+      const route = location.pathname;
+      if (route === lastRoute) return;
+      lastRoute = route;
+
+      if (isUndiscordOpen() && !undiscordCore.state.running) {
+        safeAutofillFields();
+      }
+    }
+
+
+    // Hook navigation SPA Discord
+    (function hookDiscordNavigation() {
+      const push = history.pushState;
+      const replace = history.replaceState;
+
+      history.pushState = function () {
+        const r = push.apply(this, arguments);
+        queueMicrotask(onConversationChange);
+        return r;
+      };
+
+      history.replaceState = function () {
+        const r = replace.apply(this, arguments);
+        queueMicrotask(onConversationChange);
+        return r;
+      };
+
+      window.addEventListener('popstate', onConversationChange);
+    })();
+    const chatObserver = new MutationObserver(() => {
+      onConversationChange();
+    });
+
+    const appMount = document.querySelector('#app-mount');
+    if (appMount) {
+      chatObserver.observe(appMount, {
+        childList: true,
+        subtree: false
+      });
+    }
+
 	  // enable drag and resize on undiscord window
 	  new DragResize({ elm: ui.undiscordWindow, moveHandle: $('.header') });
 
@@ -1397,29 +1500,97 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
         toolbar.appendChild(ui.undiscordBtn);
       }
     }
+    function findToolbarRoot() {
+      const seed =
+        document.querySelector('#app-mount [aria-label="Démarrer un appel vocal"], #app-mount [aria-label="Start Voice Call"]') ||
+        document.querySelector('#app-mount [aria-label="Démarrer un appel vidéo"], #app-mount [aria-label="Start Video Call"]') ||
+        document.querySelector('#app-mount [aria-label="Rechercher"], #app-mount [aria-label="Search"]');
 
+      if (!seed) return null;
+
+      let p = seed;
+      for (let i = 0; i < 12 && p; i++) {
+        if (
+          p.querySelector?.('[role="button"][aria-label]') &&
+          p.querySelector?.('[aria-label="Rechercher"], [aria-label="Search"]')
+        ) {
+          return p;
+        }
+        p = p.parentElement;
+      }
+      return null;
+    }
+
+    function mountBtnToToolbar(toolbar) {
+      if (!toolbar) return;
+      if (toolbar.contains(ui.undiscordBtn)) return;
+
+      const search =
+        toolbar.querySelector('[aria-label="Rechercher"], [aria-label="Search"]')?.closest('div');
+
+      if (search && search.parentElement === toolbar) {
+        toolbar.insertBefore(ui.undiscordBtn, search.nextSibling);
+      } else {
+        toolbar.appendChild(ui.undiscordBtn);
+      }
+    }
+
+    function observeToolbarAndMount() {
+      const root = document.querySelector('#app-mount');
+      if (!root) return;
+
+      let scheduled = false;
+      const schedule = () => {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => {
+          scheduled = false;
+          const toolbar = findToolbarRoot();
+          if (toolbar) mountBtnToToolbar(toolbar);
+        });
+      };
+
+      schedule(); // tentative immédiate
+
+      const obs = new MutationObserver(mutations => {
+        for (const m of mutations) {
+          if (m.type === 'childList' && m.addedNodes.length) {
+            schedule();
+            break;
+          }
+        }
+      });
+
+      obs.observe(root, { childList: true, subtree: true });
+    }
+
+    observeToolbarAndMount();
 	  mountBtn();
-	  // watch for changes and re-mount button if necessary
-	  const discordElm = document.querySelector('#app-mount');
-	  let observerThrottle = null;
-	  const observer = new MutationObserver((_mutationsList, _observer) => {
-	    if (observerThrottle) return;
-	    observerThrottle = setTimeout(() => {
-	      observerThrottle = null;
-	      if (!discordElm.contains(ui.undiscordBtn)) mountBtn(); // re-mount the button to the toolbar
-	    }, 3000);
-	  });
-	  observer.observe(discordElm, { attributes: false, childList: true, subtree: true });
-	  function toggleWindow() {
-	    if (ui.undiscordWindow.style.display !== 'none') {
-	      ui.undiscordWindow.style.display = 'none';
-	      ui.undiscordBtn.style.color = 'var(--interactive-normal)';
-	    }
-	    else {
-	      ui.undiscordWindow.style.display = '';
-	      ui.undiscordBtn.style.color = 'var(--interactive-active)';
-	    }
-	  }
+
+
+    function safeAutofillFields() {
+      if (undiscordCore?.state?.running) return;
+
+      try { $('input#authorId').value = getAuthorId() || $('input#authorId').value; } catch {}
+      try { $('input#guildId').value  = getGuildId()  || $('input#guildId').value; } catch {}
+      try { $('input#channelId').value = getChannelId() || $('input#channelId').value; } catch {}
+    }
+
+    function toggleWindow() {
+      const isOpen = ui.undiscordWindow.style.display !== 'none';
+
+      if (isOpen) {
+        ui.undiscordWindow.style.display = 'none';
+        ui.undiscordBtn.style.color = 'var(--interactive-normal)';
+      } else {
+        ui.undiscordWindow.style.display = '';
+        ui.undiscordBtn.style.color = 'var(--interactive-active)';
+
+        // Auto-fill uniquement à l’ouverture, et seulement si pas en cours
+        safeAutofillFields();
+      }
+    }
+
 
 	  // cached elements
 	  ui.logArea = $('#logArea');
@@ -1447,6 +1618,11 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    const b = ui.undiscordWindow.classList.toggle('redact');
 	    if (b) alert('This mode will attempt to hide personal information, so you can screen share / take screenshots.\nAlways double check you are not sharing sensitive information!');
 	  };
+    $('#alwaysHideAuthor').onchange = (e) => {
+      ui.undiscordWindow.classList.toggle('hide-author', e.target.checked);
+    };
+    ui.undiscordWindow.classList.toggle('hide-author', $('#alwaysHideAuthor').checked);
+
 	  $('#pickMessageAfter').onclick = async () => {
 	    alert('Select a message on the chat.\nThe message below it will be deleted.');
 	    toggleWindow();
