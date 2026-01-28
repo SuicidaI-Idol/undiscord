@@ -1452,7 +1452,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
       history.pushState = function () {
         const r = push.apply(this, arguments);
-        queueMicrotask(onConversationChange);
+        queueMicrotask(() => { onConversationChange(); schedule(); });
         return r;
       };
 
@@ -1482,90 +1482,124 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  // create undiscord Trash icon
 	  ui.undiscordBtn = createElm(buttonHtml);
 	  ui.undiscordBtn.onclick = toggleWindow;
-    function mountBtn() {
-      // 1) Cas DM : toolbar contient la barre de recherche (loupe) => on place APRÈS cette search
-      const dmToolbar = Array.from(document.querySelectorAll('#app-mount [class*="toolbar_"]'))
-        .find(tb => tb.querySelector('[aria-label="Rechercher"]'));
-      if (dmToolbar) {
-        const search = dmToolbar.querySelector('[class^="search__"]');
-        if (search && !dmToolbar.contains(ui.undiscordBtn)) {
-          dmToolbar.insertBefore(ui.undiscordBtn, search.nextSibling); // à droite de la loupe
+
+    // ====== ROBUST MOUNT (langue-free, sans patch history) ======
+    (function mountUndiscordButtonRobust(btn, onRouteMaybeChanged) {
+      const ROOT_SEL = '#app-mount';
+      const BTN_ID = 'undicord-btn';
+
+      // Assure un id stable (utile pour éviter les doublons)
+      if (!btn.id) btn.id = BTN_ID;
+
+      function isVisible(el) {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0;
+      }
+
+      function findTopCombobox() {
+        // Discord a souvent plusieurs combobox. On prend celle visible la plus haute.
+        const all = Array.from(document.querySelectorAll(
+          `${ROOT_SEL} [role="combobox"][contenteditable="true"]`
+        ));
+        const visible = all.filter(isVisible);
+        if (!visible.length) return null;
+        visible.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+        return visible[0];
+      }
+
+      function findToolbarFrom(el) {
+        // Remonte jusqu'à un conteneur "haut" qui contient plein de boutons
+        let p = el;
+        for (let i = 0; i < 40 && p; i++) {
+          if (p.nodeType === 1) {
+            const top = p.getBoundingClientRect().top;
+            if (top <= 180) {
+              const buttons = p.querySelectorAll?.('[role="button"]').length || 0;
+              const hasCombo = !!p.querySelector?.('[role="combobox"][contenteditable="true"]');
+              // heuristique "toolbar"
+              if (buttons >= 3 && hasCombo) return p;
+            }
+          }
+          p = p.parentElement;
         }
-        return;
+        return null;
       }
 
-      // 2) Cas serveur : fallback sur l'ancien comportement (mais en évitant les doublons)
-      const toolbar = document.querySelector('#app-mount [class*="-toolbar"], #app-mount [class*="toolbar_"]');
-      if (toolbar && !toolbar.contains(ui.undiscordBtn)) {
-        toolbar.appendChild(ui.undiscordBtn);
-      }
-    }
-    function findToolbarRoot() {
-      const seed =
-        document.querySelector('#app-mount [aria-label="Démarrer un appel vocal"], #app-mount [aria-label="Start Voice Call"]') ||
-        document.querySelector('#app-mount [aria-label="Démarrer un appel vidéo"], #app-mount [aria-label="Start Video Call"]') ||
-        document.querySelector('#app-mount [aria-label="Rechercher"], #app-mount [aria-label="Search"]');
-
-      if (!seed) return null;
-
-      let p = seed;
-      for (let i = 0; i < 12 && p; i++) {
-        if (
-          p.querySelector?.('[role="button"][aria-label]') &&
-          p.querySelector?.('[aria-label="Rechercher"], [aria-label="Search"]')
-        ) {
-          return p;
+      function findSearchBlock(combobox, toolbar) {
+        // Cherche un bloc qui contient la combobox + au moins 1 svg (loupe/clear)
+        let p = combobox;
+        for (let i = 0; i < 18 && p && p !== toolbar; i++) {
+          if (toolbar.contains(p)) {
+            const hasSvg = !!p.querySelector?.('svg');
+            const hasCombo = !!p.querySelector?.('[role="combobox"][contenteditable="true"]');
+            if (hasSvg && hasCombo) return p;
+          }
+          p = p.parentElement;
         }
-        p = p.parentElement;
+        return null;
       }
-      return null;
-    }
 
-    function mountBtnToToolbar(toolbar) {
-      if (!toolbar) return;
-      if (toolbar.contains(ui.undiscordBtn)) return;
+      function ensureMounted() {
+        const root = document.querySelector(ROOT_SEL);
+        if (!root) return false;
 
-      const search =
-        toolbar.querySelector('[aria-label="Rechercher"], [aria-label="Search"]')?.closest('div');
+        const combobox = findTopCombobox();
+        if (!combobox) return false;
 
-      if (search && search.parentElement === toolbar) {
-        toolbar.insertBefore(ui.undiscordBtn, search.nextSibling);
-      } else {
-        toolbar.appendChild(ui.undiscordBtn);
+        const toolbar = findToolbarFrom(combobox);
+        if (!toolbar) return false;
+
+        // Si déjà dans cette toolbar, on s'assure juste du style
+        if (toolbar.contains(btn)) {
+          btn.style.order = '9999';
+          btn.style.marginLeft = '8px';
+          btn.style.flex = '0 0 auto';
+          return true;
+        }
+
+        const searchBlock = findSearchBlock(combobox, toolbar);
+
+        // On insère après le bloc search le plus "haut niveau" sous la toolbar
+        if (searchBlock) {
+          let top = searchBlock;
+          while (top.parentElement && top.parentElement !== toolbar) top = top.parentElement;
+          top.insertAdjacentElement('afterend', btn);
+        } else {
+          toolbar.appendChild(btn);
+        }
+
+        btn.style.order = '9999';
+        btn.style.marginLeft = '8px';
+        btn.style.flex = '0 0 auto';
+        return true;
       }
-    }
 
-    function observeToolbarAndMount() {
-      const root = document.querySelector('#app-mount');
-      if (!root) return;
-
+      // Scheduler anti-spam
       let scheduled = false;
       const schedule = () => {
         if (scheduled) return;
         scheduled = true;
         requestAnimationFrame(() => {
           scheduled = false;
-          const toolbar = findToolbarRoot();
-          if (toolbar) mountBtnToToolbar(toolbar);
+
+          const ok = ensureMounted();
+          // Optionnel : si tu veux auto-refresh tes champs quand Discord change de vue
+          if (ok && typeof onRouteMaybeChanged === 'function') onRouteMaybeChanged();
         });
       };
 
-      schedule(); // tentative immédiate
+      // Observe DOM (Discord = SPA, tout se voit dans le DOM)
+      const root = document.querySelector(ROOT_SEL);
+      if (!root) return;
 
-      const obs = new MutationObserver(mutations => {
-        for (const m of mutations) {
-          if (m.type === 'childList' && m.addedNodes.length) {
-            schedule();
-            break;
-          }
-        }
-      });
-
+      // Observer large mais throttlé par schedule()
+      const obs = new MutationObserver(schedule);
       obs.observe(root, { childList: true, subtree: true });
-    }
 
-    observeToolbarAndMount();
-	  mountBtn();
+      // Premier mount
+      schedule();
+    })(ui.undiscordBtn, onConversationChange);
 
 
     function safeAutofillFields() {
