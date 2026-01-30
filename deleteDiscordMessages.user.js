@@ -205,8 +205,49 @@ var undiscordUiCss = (`
 
 /* Layout */
 #undiscord .sidebar{
-  background: var(--u-panel2) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)) , var(--u-panel2) !important;
   border-right: 1px solid var(--u-border) !important;
+  padding: 12px 10px !important;
+}
+#undiscord .sidebar details{
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px;
+  padding: 6px 6px 4px;
+  margin-bottom: 10px;
+}
+#undiscord .sidebar summary{
+  color: var(--u-text) !important;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+#undiscord .sidebar summary:hover{
+  background: rgba(255,255,255,.05);
+}
+#undiscord .sidebar fieldset{
+  padding-left: 6px;
+  margin-top: 10px;
+}
+#undiscord .sidebar hr{
+  margin: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+#undiscord .sidebar .sectionDescription{
+  font-size: 12px;
+  line-height: 16px;
+}
+#undiscord .sidebar input,
+#undiscord .sidebar .input,
+#undiscord .sidebar input[type="text"],
+#undiscord .sidebar input[type="search"],
+#undiscord .sidebar input[type="password"],
+#undiscord .sidebar input[type="datetime-local"],
+#undiscord .sidebar input[type="number"]{
+  height: 38px !important;
+  font-size: 14px !important;
+  padding: 8px 10px !important;
 }
 #undiscord .main{
   background: var(--u-bg) !important;
@@ -340,6 +381,173 @@ var undiscordUiCss = (`
   color: var(--text-default);
   border-radius: 5px;
   pointer-events: none;
+}
+
+/* ===== VERBOSE LOG MODE ===== */
+#undiscord.verbose{
+  --v-bg: #0b0f17;
+  --v-panel: #0f1522;
+  --v-panel-2: #121a2b;
+  --v-border: rgba(122,183,255,.25);
+  --v-text: rgba(232,240,255,.95);
+  --v-muted: rgba(170,190,220,.75);
+  --v-accent: #7ab7ff;
+  --v-accent-2: #7ee7c6;
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(122,183,255,.18), transparent 60%), var(--v-bg) !important;
+  border-color: var(--v-border) !important;
+  color: var(--v-text) !important;
+  box-shadow: 0 20px 70px rgba(0,0,0,.6) !important;
+}
+#undiscord.verbose .header{
+  background: linear-gradient(135deg, rgba(122,183,255,.18), rgba(126,231,198,.12)) !important;
+  border-bottom: 1px solid var(--v-border) !important;
+}
+#undiscord.verbose .header h3,
+#undiscord.verbose .header,
+#undiscord.verbose .header .icon{
+  color: var(--v-text) !important;
+}
+#undiscord.verbose.hide-sidebar .main{
+  max-width: 100% !important;
+}
+#undiscord.verbose .main{
+  background: var(--v-panel) !important;
+}
+#undiscord.verbose .tbar{
+  background: var(--v-panel-2) !important;
+  border-bottom: 1px solid var(--v-border) !important;
+}
+#undiscord.verbose #logArea{
+  padding: 8px !important;
+  background: #0a0f18 !important;
+  border-top: 1px solid var(--v-border) !important;
+  font-size: 11.5px !important;
+  line-height: 1.3 !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", "Fira Code", Menlo, Consolas, "Liberation Mono", monospace !important;
+}
+#undiscord.verbose .log{
+  margin-bottom: 0 !important;
+}
+#undiscord.verbose .log-vrow{
+  display: grid;
+  grid-template-columns: 75px 62px 1fr;
+  gap: 4px;
+  align-items: start;
+  padding: 1px 6px;
+  margin: 0 0 1px;
+  border-radius: 3px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.06);
+}
+#undiscord.verbose .log-vrow .vtime{
+  color: var(--v-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+#undiscord.verbose .log-vrow .vbadge{
+  text-transform: uppercase;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(122,183,255,.12);
+  color: var(--v-accent);
+  border: 1px solid rgba(122,183,255,.25);
+  line-height: 1.2;
+}
+#undiscord.verbose .log-vrow.log-info .vbadge{ color: #7ab7ff; border-color: rgba(122,183,255,.35); }
+#undiscord.verbose .log-vrow.log-warn .vbadge{ color: #ffb454; border-color: rgba(255,180,84,.35); background: rgba(255,180,84,.12); }
+#undiscord.verbose .log-vrow.log-error .vbadge{ color: #ff6b6b; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.12); }
+#undiscord.verbose .log-vrow.log-success .vbadge{ color: #7ee7c6; border-color: rgba(126,231,198,.35); background: rgba(126,231,198,.12); }
+#undiscord.verbose .log-vrow.log-verb .vbadge{ color: #b4c6e7; border-color: rgba(180,198,231,.35); background: rgba(180,198,231,.12); }
+#undiscord.verbose .log-vrow .vmsg{
+  color: var(--v-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+#undiscord:not(.verbose) .log-del{
+  display: grid;
+  grid-template-columns: 88px 24px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 0 0 2px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  align-items: flex-start;
+}
+#undiscord:not(.verbose) .log-del:last-child{ margin-bottom: 0; }
+#undiscord:not(.verbose) .log-del .stamp{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 88px;
+  white-space: nowrap;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+}
+#undiscord:not(.verbose) .log-del img{
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.18);
+  margin-top: 2px;
+}
+#undiscord:not(.verbose) .log-del .head{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+#undiscord:not(.verbose) .log-del .date{
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 10.5px;
+  color: rgba(255,255,255,.82);
+  letter-spacing: .02em;
+}
+#undiscord:not(.verbose) .log-del .date .d{
+  text-transform: uppercase;
+  opacity: .9;
+}
+#undiscord:not(.verbose) .log-del .date .t{
+  opacity: .7;
+}
+#undiscord:not(.verbose) .log-del .author{
+  font-size: 12px;
+  color: rgba(255,255,255,.92);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+#undiscord:not(.verbose) .log-del .meta{
+  font-size: 10.5px;
+  color: rgba(255,255,255,.62);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+#undiscord:not(.verbose) .log-del .content{
+  font-size: 13px;
+  color: rgba(255,255,255,.92);
+}
+#undiscord:not(.verbose) .log-del .txt{
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
 }
 
 `);
@@ -597,13 +805,16 @@ var undiscordUiCss = (`
               <button id="start" class="sizeMedium danger" style="width: 150px;" title="Start the deletion process">▶︎ Delete</button>
               <button id="stop" class="sizeMedium" title="Stop the deletion process" disabled>🛑 Stop</button>
               <button id="clear" class="sizeMedium">Clear log</button>
-              <label class="row" title="Hide sensitive information on your screen for taking screenshots">
+              <label class="row" title="Hide sensitive information on your screen for taking screenshots" style="margin-right:8px;">
                 <input id="redact" type="checkbox"> Streamer mode
               </label>
-
-              <label class="row" title="Always hide Author ID field even if Streamer mode is OFF" style="margin-left:10px;">
+              <label class="row" title="Always hide Author ID field even if Streamer mode is OFF" style="margin-right:8px;">
                 <input id="alwaysHideAuthor" type="checkbox" checked> Hide Author ID
               </label>
+              <label class="row" title="Verbose console (all logs). Off = clean delete-only view.">
+                <input id="verboseMode" type="checkbox"> Verbose console
+              </label>
+
             </div>
 
             <div class="row">
@@ -614,12 +825,16 @@ var undiscordUiCss = (`
           </div>
 
             <pre id="logArea" class="logarea scroll">
-                <div class="" style="background: var(--background-mentioned); padding: .5em;">Notice: Undiscord may be working slower than usual and<wbr>require multiple attempts due to a recent Discord update.<br>We're working on a fix, and we thank you for your patience.</div>
-                <center>
-                    <div>Star <a href="{{HOME}}" target="_blank" rel="noopener noreferrer">this project</a> on GitHub!</div>
-                    <div><a href="{{HOME}}/discussions" target="_blank" rel="noopener noreferrer">Issues or help</a></div>
-                </center>
+              <div class="log log-static" style="background: var(--background-mentioned); padding: .5em;">
+                Notice: Undiscord may be working slower than usual and<wbr>require multiple attempts due to a recent Discord update.<br>
+                We're working on a fix, and we thank you for your patience.
+              </div>
+              <center class="log log-static">
+                <div>Star <a href="{{HOME}}" target="_blank" rel="noopener noreferrer">this project</a> on GitHub!</div>
+                <div><a href="{{HOME}}/discussions" target="_blank" rel="noopener noreferrer">Issues or help</a></div>
+              </center>
             </pre>
+
             <div class="tbar footer row">
                 <div id="progressPercent"></div>
                 <span class="spacer"></span>
@@ -634,17 +849,25 @@ var undiscordUiCss = (`
 
 `);
 
-	const log = {
-	  debug() { return logFn ? logFn('debug', arguments) : console.debug.apply(console, arguments); },
-	  info() { return logFn ? logFn('info', arguments) : console.info.apply(console, arguments); },
-	  verb() { return logFn ? logFn('verb', arguments) : console.log.apply(console, arguments); },
-	  warn() { return logFn ? logFn('warn', arguments) : console.warn.apply(console, arguments); },
-	  error() { return logFn ? logFn('error', arguments) : console.error.apply(console, arguments); },
-	  success() { return logFn ? logFn('success', arguments) : console.info.apply(console, arguments); },
-	};
+  const log = {
+    debug() { return logFn ? logFn('debug', arguments) : console.debug.apply(console, arguments); },
+    info() { return logFn ? logFn('info', arguments) : console.info.apply(console, arguments); },
+    verb() { return logFn ? logFn('verb', arguments) : console.log.apply(console, arguments); },
+    warn() { return logFn ? logFn('warn', arguments) : console.warn.apply(console, arguments); },
+    error() { return logFn ? logFn('error', arguments) : console.error.apply(console, arguments); },
+    success() { return logFn ? logFn('success', arguments) : console.info.apply(console, arguments); },
+
+    // ✅ dedicated delete line for compact mode
+    del() { return logFn ? logFn('del', arguments) : console.log.apply(console, arguments); },
+  };
+
 
 	var logFn; // custom console.log function
 	const setLogFn = (fn) => logFn = fn;
+  const logStore = {
+    compact: [],
+    verbose: [],
+  };
 
 	// Helpers
 	const wait = async ms => new Promise(done => setTimeout(done, ms));
@@ -696,6 +919,7 @@ var undiscordUiCss = (`
 	    offset: 0,
 	    iterations: 0,
       endReason: null, // 'DONE' | 'STOPPED' | 'ERROR'
+      _emptyPageStreak: 0,
 	    _seachResponse: null,
 	    _messagesToDelete: [],
 	    _skippedMessages: [],
@@ -726,6 +950,8 @@ var undiscordUiCss = (`
 	      grandTotal: 0,
 	      offset: 0,
 	      iterations: 0,
+        endReason: null,
+        _emptyPageStreak: 0,
 
 	      _seachResponse: null,
 	      _messagesToDelete: [],
@@ -810,13 +1036,11 @@ var undiscordUiCss = (`
 
 	    log.success(`\nStarted at ${this.stats.startTime.toLocaleString()}`);
       log.debug(
-        `authorId = "${redactAuthor(this.options.authorId)}"`,
-        `guildId = "${redact(this.options.guildId)}"`,
-        `channelId = "${redact(this.options.channelId)}"`,
-	      `minId = "${redact(this.options.minId)}"`,
-	      `maxId = "${redact(this.options.maxId)}"`,
-	      `hasLink = ${!!this.options.hasLink}`,
-	      `hasFile = ${!!this.options.hasFile}`,
+        `authorId = "${this.options.authorId || ''}"`,
+        `guildId = "${this.options.guildId || ''}"`,
+        `channelId = "${this.options.channelId || ''}"`,
+	      `minId = "${this.options.minId || ''}"`,
+	      `maxId = "${this.options.maxId || ''}"`,
 	    );
 
 	    if (this.onStart) this.onStart(this.state, this.stats);
@@ -830,6 +1054,9 @@ var undiscordUiCss = (`
 
 	      // Process results and find which messages should be deleted
 	      await this.filterResponse();
+        if (this.state._messagesToDelete.length > 0 || this.state._skippedMessages.length > 0) {
+          this.state._emptyPageStreak = 0;
+        }
 
 	      log.verb(
 	        `Grand total: ${this.state.grandTotal}`,
@@ -853,9 +1080,8 @@ var undiscordUiCss = (`
 	        }
 
 	        await this.deleteMessagesFromList();
-          skipWaitOnce = true;
-          if (await this.quickCheckIfDone()) break;
-          continue;
+          // Discord search index can lag; wait searchDelay so next search isn't empty/stale.
+          skipWaitOnce = false;
 	      }
 	      else if (this.state._skippedMessages.length > 0) {
 	        // There are stuff, but nothing to delete (example a page full of system messages)
@@ -868,6 +1094,18 @@ var undiscordUiCss = (`
           continue;
         }
         else {
+          // Discord search may temporarily return an empty page right after deletions (index lag).
+          const processed = this.state.delCount + this.state.failCount + (this.state._skippedUniqueCount || 0);
+          const target = this.state.grandTotal || 0;
+          this.state._emptyPageStreak = (this.state._emptyPageStreak || 0) + 1;
+
+          if (target > 0 && processed < target && this.state._emptyPageStreak <= 5) {
+            const waitMs = Math.max(250, Number(this.options.searchDelay) || 0);
+            log.warn(`Search returned an empty page but only processed ${processed}/${target}. Waiting ${Math.round(waitMs)}ms and retrying...`);
+            await wait(waitMs);
+            continue;
+          }
+
           log.verb('Ended because API returned an empty page.');
           log.verb('[End state]', this.state);
           this.state.endReason = 'DONE';
@@ -1129,15 +1367,19 @@ var undiscordUiCss = (`
 	      const message = this.state._messagesToDelete[i];
 	      if (!this.state.running) return log.error('Stopped by you!');
 
-	      log.debug(
-	        // `${((this.state.delCount + 1) / this.state.grandTotal * 100).toFixed(2)}%`,
-	        `[${this.state.delCount + 1}/${this.state.grandTotal}] ` +
-	        `<sup>${new Date(message.timestamp).toLocaleString()}</sup> ` +
-	        `<b>${redact(message.author.username + '#' + message.author.discriminator)}</b>` +
-	        `: <i>${redact(message.content).replace(/\n/g, '↵')}</i>` +
-	        (message.attachments.length ? redact(JSON.stringify(message.attachments)) : ''),
-	        `<sup>{ID:${redact(message.id)}}</sup>`
-	      );
+        const idx = this.state.delCount + this.state.failCount + 1;
+        const max = Math.max(this.state.grandTotal, idx);
+
+        const meta = `[${idx}/${max}]`;
+        const content = (message.content || '').replace(/\n/g, ' ↵ ').trim() || '[no text]';
+
+        log.del({
+          author: message.author,
+          meta,
+          content,
+          timestamp: message.timestamp
+        });
+
 
 	      // Delete a single message (with retry)
 	      let attempt = 0;
@@ -1613,6 +1855,8 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  progressMain: null,
 	  progressIcon: null,
 	  percent: null,
+
+    verboseMode: null,
 	};
 	const $ = s => ui.undiscordWindow.querySelector(s);
 
@@ -1849,13 +2093,32 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  ui.progressMain = $('#progressBar');
 	  ui.progressIcon = ui.undiscordBtn.querySelector('progress');
 	  ui.percent = $('#progressPercent');
+    ui.verboseMode = $('#verboseMode');
+    function applyVerboseUI() {
+      const on = !!ui.verboseMode.checked;
+      ui.undiscordWindow.classList.toggle('verbose', on);
+      renderLogsForMode(on ? 'verbose' : 'compact');
+      if (ui.autoScroll?.checked) {
+        // Wait for render + style recalculation, then snap to bottom reliably.
+        requestAnimationFrame(() => requestAnimationFrame(() => scrollLogToBottom({ smooth: true })));
+      }
+    }
+
+    ui.verboseMode.onchange = applyVerboseUI;
+    applyVerboseUI();
+
+
 
 	  // register event listeners
 	  $('#hide').onclick = toggleWindow;
 	  $('#toggleSidebar').onclick = ()=> ui.undiscordWindow.classList.toggle('hide-sidebar');
 	  $('button#start').onclick = startAction;
 	  $('button#stop').onclick = stopAction;
-	  $('button#clear').onclick = () => ui.logArea.innerHTML = '';
+	  $('button#clear').onclick = () => {
+      ui.logArea.innerHTML = '';
+      logStore.compact = [];
+      logStore.verbose = [];
+    };
 	  $('button#getAuthor').onclick = () => $('input#authorId').value = getAuthorId();
 	  $('button#getGuild').onclick = () => {
 	    const guildId = $('input#guildId').value = getGuildId();
@@ -1963,11 +2226,97 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  setupUndiscordCore();
 	}
 
-	function printLog(type = '', args) {
-	  ui.logArea.insertAdjacentHTML('beforeend', `<div class="log log-${type}">${Array.from(args).map(o => typeof o === 'object' ? JSON.stringify(o, o instanceof Error && Object.getOwnPropertyNames(o)) : o).join('\t')}</div>`);
-	  if (ui.autoScroll.checked) ui.logArea.querySelector('div:last-child').scrollIntoView(false);
-	  if (type==='error') console.error(PREFIX, ...Array.from(args));
-	}
+  function getAvatarURL(author) {
+    try {
+      const id = author?.id;
+      const avatar = author?.avatar;
+      const disc = parseInt(author?.discriminator || '0', 10);
+
+      if (id && avatar) {
+        // png ok, tu peux mettre .webp aussi
+        return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32`;
+      }
+      // fallback Discord default avatar
+      return `https://cdn.discordapp.com/embed/avatars/${(disc % 5)}.png`;
+    } catch {
+      return `https://cdn.discordapp.com/embed/avatars/0.png`;
+    }
+  }
+
+  function formatArgs(args) {
+    return Array.from(args).map(o =>
+      typeof o === 'object'
+        ? JSON.stringify(o, o instanceof Error && Object.getOwnPropertyNames(o))
+        : String(o)
+    ).join('\t');
+  }
+
+  function scrollLogToBottom({ smooth = false } = {}) {
+    if (!ui?.logArea) return;
+    const top = ui.logArea.scrollHeight;
+    if (smooth && typeof ui.logArea.scrollTo === 'function') {
+      ui.logArea.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      ui.logArea.scrollTop = top;
+    }
+  }
+
+  function appendCompactLog(entry) {
+    const payload = entry.args[0] || {};
+    const avatarUrl = getAvatarURL(payload.author);
+    const ts = payload.timestamp ? new Date(payload.timestamp) : entry.time;
+    const time = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const date = ts.toLocaleDateString();
+    const tag = payload.author ? (payload.author.global_name || payload.author.username || 'Unknown') : 'Unknown';
+    const meta = payload.meta || '';
+    // NOTE: logArea is a <pre>; avoid whitespace/newlines which render as extra gaps.
+    ui.logArea.insertAdjacentHTML(
+      'beforeend',
+      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div><div class="meta">${escapeHTML(meta)}</div></div><img src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author">${escapeHTML(tag)}</div></div><div class="content">${escapeHTML(payload.content || '')}</div></div></div>`
+    );
+  }
+
+  function appendVerboseLog(entry) {
+    const time = entry.time.toLocaleTimeString([], { hour12: false });
+    const badge = entry.type || 'log';
+    const text = entry.type === 'del'
+      ? `${entry.args[0]?.meta || 'Deleted'} — ${entry.args[0]?.content || ''}`
+      : formatArgs(entry.args);
+
+    // NOTE: logArea is a <pre>; avoid whitespace/newlines which render as extra gaps.
+    ui.logArea.insertAdjacentHTML(
+      'beforeend',
+      `<div class="log log-vrow log-${escapeHTML(entry.type)}"><div class="vtime">${escapeHTML(time)}</div><div class="vbadge">${escapeHTML(badge)}</div><div class="vmsg">${escapeHTML(text)}</div></div>`
+    );
+  }
+
+  function renderLogsForMode(mode) {
+    ui.logArea.innerHTML = '';
+    const entries = logStore[mode] || [];
+    for (const entry of entries) {
+      if (mode === 'verbose') appendVerboseLog(entry);
+      else appendCompactLog(entry);
+    }
+  }
+
+  function printLog(type = '', args) {
+    const entry = { type, args: Array.from(args), time: new Date() };
+    logStore.verbose.push(entry);
+    if (type === 'del') logStore.compact.push(entry);
+
+    const isVerbose = !!ui.verboseMode?.checked;
+    if (isVerbose) {
+      appendVerboseLog(entry);
+    } else if (type === 'del') {
+      appendCompactLog(entry);
+    } else {
+      return;
+    }
+
+    if (ui.autoScroll.checked) scrollLogToBottom();
+    if (type === 'error') console.error(PREFIX, ...Array.from(args));
+  }
+
 
 	function setupUndiscordCore() {
 
@@ -2031,16 +2380,23 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
       // ✅ Normal completion: green bar + success message
       if (state.endReason === 'DONE') {
-        ui.undiscordWindow.classList.add('finished');
-
         const total = state.delCount + state.failCount;
-        const effectiveMax = Math.max(0, state.grandTotal - (state._skippedUniqueCount || 0));
+        const skipped = state._skippedUniqueCount || 0;
+        const effectiveMax = Math.max(0, state.grandTotal - skipped);
         const max = Math.max(effectiveMax, total);
-        const msg = `✅ Completed: ${state.delCount} deleted, ${state.failCount} failed. (${total}/${max})`;
 
-        $('#doneBanner').textContent = msg;
-
-        log.success(msg);
+        // If this happens, Discord search/index likely returned an empty page too early.
+        if (effectiveMax > 0 && total < effectiveMax) {
+          ui.undiscordWindow.classList.remove('finished');
+          const msg = `WARNING: finished early? ${state.delCount} deleted, ${state.failCount} failed. (${total}/${max}) Try increasing Search delay and run again.`;
+          $('#doneBanner').textContent = msg;
+          log.warn(msg);
+        } else {
+          ui.undiscordWindow.classList.add('finished');
+          const msg = `✅ Completed: ${state.delCount} deleted, ${state.failCount} failed. (${total}/${max})`;
+          $('#doneBanner').textContent = msg;
+          log.success(msg);
+        }
       } else {
         // Otherwise, remove "finished" state
         ui.undiscordWindow.classList.remove('finished');
