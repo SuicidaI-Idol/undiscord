@@ -291,6 +291,56 @@ var undiscordUiCss = (`
   -webkit-text-security: disc !important;
   text-security: disc !important;
 }
+/* ===== FINISHED STATE ===== */
+#undiscord.finished #progressBar::-webkit-progress-value { background: #2ecc71 !important; }
+#undiscord.finished #progressBar { border-radius: 999px !important; }
+
+#undiscord.finished #undicord-btn progress::-webkit-progress-value { background: #2ecc71 !important; }
+
+/* Firefox */
+#undiscord.finished #progressBar::-moz-progress-bar { background: #2ecc71 !important; }
+#undiscord.finished #undicord-btn progress::-moz-progress-bar { background: #2ecc71 !important; }
+
+/* Success message */
+#undiscord .doneBanner{
+  display:none;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(46, 204, 113, .35);
+  background: rgba(46, 204, 113, .10);
+  color: rgba(255,255,255,.9);
+  font-size: 13px;
+}
+#undiscord.finished .doneBanner{ display:block; }
+
+/* Hide Author ID redaction (independent from Streamer mode) */
+#undiscord.hide-author x.priv-author:not(:active) {
+  color: transparent !important;
+  background-color: var(--primary-700) !important;
+  cursor: default;
+  user-select: none;
+}
+#undiscord.hide-author x.priv-author:hover {
+  position: relative;
+}
+#undiscord.hide-author x.priv-author:hover::after {
+  content: "Redacted Author ID (Hide Author ID: ON)";
+  position: absolute;
+  display: inline-block;
+  top: -32px;
+  left: -20px;
+  padding: 4px;
+  width: 150px;
+  font-size: 8pt;
+  text-align: center;
+  white-space: pre-wrap;
+  background-color: var(--background-floating);
+  box-shadow: var(--elevation-high);
+  color: var(--text-default);
+  border-radius: 5px;
+  pointer-events: none;
+}
 
 `);
 
@@ -319,7 +369,8 @@ var undiscordUiCss = (`
 `);
 
 	var undiscordTemplate = (`
-<div id="undiscord" class="browser container redact" style="display:none;">
+<div id="undiscord" class="browser container" style="display:none;">
+
     <div class="header">
         <svg class="icon" aria-hidden="false" width="24" height="24" viewBox="0 0 24 24">
             <path fill="currentColor" d="M15 3.999V2H9V3.999H3V5.999H21V3.999H15Z"></path>
@@ -540,24 +591,28 @@ var undiscordUiCss = (`
             </div>
         </div>
         <div class="main col">
-            <div class="tbar col">
-                <div class="row">
-                    <button id="toggleSidebar" class="sizeMedium icon">☰</button>
-                    <button id="start" class="sizeMedium danger" style="width: 150px;" title="Start the deletion process">▶︎ Delete</button>
-                    <button id="stop" class="sizeMedium" title="Stop the deletion process" disabled>🛑 Stop</button>
-                    <button id="clear" class="sizeMedium">Clear log</button>
-                    <label class="row" title="Hide sensitive information on your screen for taking screenshots">
-                      <input id="redact" type="checkbox" checked> Streamer mode
-                    </label>
+          <div class="tbar col">
+            <div class="row">
+              <button id="toggleSidebar" class="sizeMedium icon">☰</button>
+              <button id="start" class="sizeMedium danger" style="width: 150px;" title="Start the deletion process">▶︎ Delete</button>
+              <button id="stop" class="sizeMedium" title="Stop the deletion process" disabled>🛑 Stop</button>
+              <button id="clear" class="sizeMedium">Clear log</button>
+              <label class="row" title="Hide sensitive information on your screen for taking screenshots">
+                <input id="redact" type="checkbox"> Streamer mode
+              </label>
 
-                    <label class="row" title="Always hide Author ID field even if Streamer mode is OFF" style="margin-left:10px;">
-                      <input id="alwaysHideAuthor" type="checkbox" checked> Hide Author ID
-                    </label>
-                </div>
-                <div class="row">
-                    <progress id="progressBar" style="display:none;"></progress>
-                </div>
+              <label class="row" title="Always hide Author ID field even if Streamer mode is OFF" style="margin-left:10px;">
+                <input id="alwaysHideAuthor" type="checkbox" checked> Hide Author ID
+              </label>
             </div>
+
+            <div class="row">
+              <progress id="progressBar" style="display:none;"></progress>
+            </div>
+
+            <div class="doneBanner" id="doneBanner">✅ Terminé : suppression terminée avec succès.</div>
+          </div>
+
             <pre id="logArea" class="logarea scroll">
                 <div class="" style="background: var(--background-mentioned); padding: .5em;">Notice: Undiscord may be working slower than usual and<wbr>require multiple attempts due to a recent Discord update.<br>We're working on a fix, and we thank you for your patience.</div>
                 <center>
@@ -594,8 +649,9 @@ var undiscordUiCss = (`
 	// Helpers
 	const wait = async ms => new Promise(done => setTimeout(done, ms));
 	const msToHMS = s => `${s / 3.6e6 | 0}h ${(s % 3.6e6) / 6e4 | 0}m ${(s % 6e4) / 1000 | 0}s`;
-	const escapeHTML = html => String(html).replace(/[&<"']/g, m => ({ '&': '&amp;', '<': '&lt;', '"': '&quot;', '\'': '&#039;' })[m]);
-	const redact = str => `<x>${escapeHTML(str)}</x>`;
+  const escapeHTML = html => String(html).replace(/[&<"']/g, m => ({ '&': '&amp;', '<': '&lt;', '"': '&quot;', '\'': '&#039;' })[m]);
+  const redact = str => `<x>${escapeHTML(str)}</x>`;
+  const redactAuthor = str => `<x class="priv-author">${escapeHTML(str)}</x>`;
 	const queryString = params => params.filter(p => p[1] !== undefined).map(p => p[0] + '=' + encodeURIComponent(p[1])).join('&');
 	const ask = async msg => new Promise(resolve => setTimeout(() => resolve(window.confirm(msg)), 10));
 	const toSnowflake = (date) => /:/.test(date) ? ((new Date(date).getTime() - 1420070400000) * Math.pow(2, 22)) : date;
@@ -639,10 +695,13 @@ var undiscordUiCss = (`
 	    grandTotal: 0,
 	    offset: 0,
 	    iterations: 0,
-
+      endReason: null, // 'DONE' | 'STOPPED' | 'ERROR'
 	    _seachResponse: null,
 	    _messagesToDelete: [],
 	    _skippedMessages: [],
+      _skippedIds: new Set(),
+      _skippedUniqueCount: 0,
+
 	  };
 
 	  stats = {
@@ -671,40 +730,48 @@ var undiscordUiCss = (`
 	      _seachResponse: null,
 	      _messagesToDelete: [],
 	      _skippedMessages: [],
+        _skippedIds: new Set(),
+        _skippedUniqueCount: 0,
 	    };
 
 	    this.options.askForConfirmation = true;
 	  }
 
-    /** Re-check immédiatement après une suppression pour détecter la fin sans attendre searchDelay */
+    /** Re-check immediately after deletion to detect completion without waiting searchDelay */
     async quickCheckIfDone() {
       const oldOffset = this.state.offset;
 
       try {
-        // Repart de l'offset courant (souvent ok) ; sinon tu peux forcer à 0 si tu préfères
-        // this.state.offset = 0;
+        // ✅ Important: always re-check from the beginning
+        this.state.offset = 0;
 
         await this.search();
         await this.filterResponse();
 
+        const total = this.state._seachResponse?.total_results ?? 0;
         const hasMore = (this.state._messagesToDelete.length > 0) || (this.state._skippedMessages.length > 0);
 
-        if (!hasMore) {
+        // DONE only if Discord reports no results at all
+        if (total === 0 || !hasMore) {
           log.verb('Quick check: no more messages returned. Ending now.');
+          this.state.endReason = 'DONE';
           this.state.running = false;
           return true;
         }
 
-        // Si y'a encore des messages (à delete ou à skip), on continue normalement
+        // Not done, keep going
         return false;
       } catch (e) {
-        // En cas d'erreur (rate limit, etc.), on ne casse pas la run.
-        // On restaure l'offset et on laisse la boucle continuer.
+        // Restore offset and continue normally if quick check fails
         this.state.offset = oldOffset;
         log.warn('Quick check failed, continuing normally...', e);
         return false;
+      } finally {
+        // Restore offset to avoid side effects on the normal loop
+        this.state.offset = oldOffset;
       }
     }
+
 
 	  /** Automate the deletion process of multiple channels */
 	  async runBatch(queue) {
@@ -742,10 +809,10 @@ var undiscordUiCss = (`
 	    this.stats.startTime = new Date();
 
 	    log.success(`\nStarted at ${this.stats.startTime.toLocaleString()}`);
-	    log.debug(
-	      `authorId = "${redact(this.options.authorId)}"`,
-	      `guildId = "${redact(this.options.guildId)}"`,
-	      `channelId = "${redact(this.options.channelId)}"`,
+      log.debug(
+        `authorId = "${redactAuthor(this.options.authorId)}"`,
+        `guildId = "${redact(this.options.guildId)}"`,
+        `channelId = "${redact(this.options.channelId)}"`,
 	      `minId = "${redact(this.options.minId)}"`,
 	      `maxId = "${redact(this.options.maxId)}"`,
 	      `hasLink = ${!!this.options.hasLink}`,
@@ -753,7 +820,7 @@ var undiscordUiCss = (`
 	    );
 
 	    if (this.onStart) this.onStart(this.state, this.stats);
-
+      let skipWaitOnce = false;
 	    do {
 	      this.state.iterations++;
 
@@ -786,7 +853,9 @@ var undiscordUiCss = (`
 	        }
 
 	        await this.deleteMessagesFromList();
+          skipWaitOnce = true;
           if (await this.quickCheckIfDone()) break;
+          continue;
 	      }
 	      else if (this.state._skippedMessages.length > 0) {
 	        // There are stuff, but nothing to delete (example a page full of system messages)
@@ -795,19 +864,29 @@ var undiscordUiCss = (`
 	        this.state.offset += this.state._skippedMessages.length;
 	        log.verb('There\'s nothing we can delete on this page, checking next page...');
 	        log.verb(`Skipped ${this.state._skippedMessages.length} out of ${this.state._seachResponse.messages.length} in this page.`, `(Offset was ${oldOffset}, ajusted to ${this.state.offset})`);
-	      }
-	      else {
-	        log.verb('Ended because API returned an empty page.');
-	        log.verb('[End state]', this.state);
-	        if (isJob) break; // break without stopping if this is part of a job
-	        this.state.running = false;
-	      }
+	        skipWaitOnce = true;
+          continue;
+        }
+        else {
+          log.verb('Ended because API returned an empty page.');
+          log.verb('[End state]', this.state);
+          this.state.endReason = 'DONE';
+          if (isJob) break;
+          this.state.running = false;
+        }
+
 
 	      // wait before next page (fix search page not updating fast enough)
         if (this.state.running) {
-          log.verb(`Waiting ${(this.options.searchDelay / 1000).toFixed(2)}s before next page...`);
-          await wait(this.options.searchDelay);
+          if (skipWaitOnce) {
+            skipWaitOnce = false;
+            log.verb('Skipping wait (page had only skipped / non-deletable messages).');
+          } else {
+            log.verb(`Waiting ${(this.options.searchDelay / 1000).toFixed(2)}s before next page...`);
+            await wait(this.options.searchDelay);
+          }
         }
+
 	    } while (this.state.running);
 
 	    this.stats.endTime = new Date();
@@ -818,10 +897,12 @@ var undiscordUiCss = (`
 	    if (this.onStop) this.onStop(this.state, this.stats);
 	  }
 
-	  stop() {
-	    this.state.running = false;
-	    if (this.onStop) this.onStop(this.state, this.stats);
-	  }
+    stop() {
+      this.state.endReason = 'STOPPED';
+      this.state.running = false;
+      if (this.onStop) this.onStop(this.state, this.stats);
+    }
+
 
 	  /** Calculate the estimated time remaining based on the current stats */
 	  calcEtr() {
@@ -895,6 +976,7 @@ var undiscordUiCss = (`
 
           // Retry seulement si activé
           if (!this.options.retryOnNetworkError) {
+            this.state.endReason = 'ERROR';
             this.state.running = false;
             log.error('Search request threw an error:', err);
             throw err;
@@ -970,6 +1052,40 @@ var undiscordUiCss = (`
 	    // search returns messages near the the actual message, only get the messages we searched for.
 	    const discoveredMessages = data.messages.map(convo => convo.find(message => message.hit === true));
 
+      // ===== DEBUG message types (what Discord returns) =====
+      try {
+        const dm = discoveredMessages.filter(Boolean);
+
+        // Count by type
+        const byType = dm.reduce((acc, m) => {
+          const t = m?.type ?? 'null';
+          acc[t] = (acc[t] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Take a few examples for non-0 types
+        const non0 = dm.filter(m => m && m.type !== 0).slice(0, 10).map(m => ({
+          id: m.id,
+          type: m.type,
+          flags: m.flags,
+          pinned: m.pinned,
+          system_content: m.system_content,
+          content: (m.content || '').slice(0, 80),
+          author: m.author ? `${m.author.username}#${m.author.discriminator}` : null,
+          timestamp: m.timestamp,
+        }));
+
+        console.log(PREFIX$1, 'DEBUG types', {
+          total_results: data.total_results,
+          page_messages: data.messages?.length,
+          discovered: dm.length,
+          byType,
+          examples_non0: non0,
+        });
+      } catch (e) {
+        console.warn(PREFIX$1, 'DEBUG types failed', e);
+      }
+
 	    // we can only delete some types of messages, system messages are not deletable.
 	    let messagesToDelete = discoveredMessages;
 	    messagesToDelete = messagesToDelete.filter(msg => msg.type === 0 || (msg.type >= 6 && msg.type <= 21));
@@ -986,10 +1102,26 @@ var undiscordUiCss = (`
 	    // create an array containing everything we skipped. (used to calculate offset for next searches)
 	    const skippedMessages = discoveredMessages.filter(msg => !messagesToDelete.find(m => m.id === msg.id));
 
+      for (const msg of skippedMessages) {
+        if (!msg?.id) continue;
+        if (!this.state._skippedIds.has(msg.id)) {
+          this.state._skippedIds.add(msg.id);
+          this.state._skippedUniqueCount++;
+        }
+      }
+
 	    this.state._messagesToDelete = messagesToDelete;
 	    this.state._skippedMessages = skippedMessages;
 
-	    console.log(PREFIX$1, 'filterResponse', this.state);
+	    console.log(PREFIX$1, 'filterResponse', {
+        grandTotal: this.state.grandTotal,
+        skippedUnique: this.state._skippedUniqueCount,
+        effectiveTotal: Math.max(0, this.state.grandTotal - this.state._skippedUniqueCount),
+        pageMessages: data?.messages?.length ?? 0,
+        toDelete: this.state._messagesToDelete.length,
+        skippedPage: this.state._skippedMessages.length,
+      });
+
 	  }
 
 	  async deleteMessagesFromList() {
@@ -1840,6 +1972,9 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	function setupUndiscordCore() {
 
 	  undiscordCore.onStart = (state, stats) => {
+      ui.undiscordWindow.classList.remove('finished');
+      $('#doneBanner').textContent = '';
+
 	    console.log(PREFIX, 'onStart', state, stats);
 	    $('#start').disabled = true;
 	    $('#stop').disabled = false;
@@ -1850,10 +1985,11 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  };
 
 	  undiscordCore.onProgress = (state, stats) => {
-	    // console.log(PREFIX, 'onProgress', state, stats);
-	    let max = state.grandTotal;
-	    const value = state.delCount + state.failCount;
-	    max = Math.max(max, value, 0); // clamp max
+      // console.log(PREFIX, 'onProgress', state, stats);
+      const value = state.delCount + state.failCount;
+      let max = Math.max(0, state.grandTotal - (state._skippedUniqueCount || 0));
+      max = Math.max(max, value, 0);
+
 
 	    // status bar
 	    const percent = value >= 0 && max ? Math.round(value / max * 100) + '%' : '';
@@ -1884,14 +2020,39 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    $('div#deleteDelayValue').textContent = undiscordCore.options.deleteDelay+'ms';
 	  };
 
-	  undiscordCore.onStop = (state, stats) => {
-	    console.log(PREFIX, 'onStop', state, stats);
-	    $('#start').disabled = false;
-	    $('#stop').disabled = true;
-	    ui.undiscordBtn.classList.remove('running');
-	    ui.progressMain.style.display = 'none';
-	    ui.percent.style.display = 'none';
-	  };
+    undiscordCore.onStop = (state, stats) => {
+      console.log(PREFIX, 'onStop', state, stats);
+
+      $('#start').disabled = false;
+      $('#stop').disabled = true;
+      ui.undiscordBtn.classList.remove('running');
+      ui.progressMain.style.display = 'none';
+      ui.percent.style.display = 'none';
+
+      // ✅ Normal completion: green bar + success message
+      if (state.endReason === 'DONE') {
+        ui.undiscordWindow.classList.add('finished');
+
+        const total = state.delCount + state.failCount;
+        const effectiveMax = Math.max(0, state.grandTotal - (state._skippedUniqueCount || 0));
+        const max = Math.max(effectiveMax, total);
+        const msg = `✅ Completed: ${state.delCount} deleted, ${state.failCount} failed. (${total}/${max})`;
+
+        $('#doneBanner').textContent = msg;
+
+        log.success(msg);
+      } else {
+        // Otherwise, remove "finished" state
+        ui.undiscordWindow.classList.remove('finished');
+
+        if (state.endReason === 'STOPPED') {
+          log.warn('Stopped by user.');
+        } else if (state.endReason === 'ERROR') {
+          log.error('Stopped due to an error.');
+        }
+      }
+    };
+
 	}
 
 	async function startAction() {
