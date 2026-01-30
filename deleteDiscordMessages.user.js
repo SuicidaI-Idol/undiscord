@@ -430,9 +430,9 @@ var undiscordUiCss = (`
 }
 #undiscord.verbose .log-vrow{
   display: grid;
-  grid-template-columns: 75px 62px 1fr;
-  gap: 4px;
-  align-items: start;
+  grid-template-columns: max-content max-content 1fr;
+  gap: 2px;
+  align-items: center;
   padding: 1px 6px;
   margin: 0 0 1px;
   border-radius: 3px;
@@ -440,11 +440,16 @@ var undiscordUiCss = (`
   border: 1px solid rgba(255,255,255,.06);
 }
 #undiscord.verbose .log-vrow .vtime{
+  grid-column: 1;
+  white-space: nowrap;
   color: var(--v-muted);
   font-size: 10px;
   line-height: 1.2;
 }
 #undiscord.verbose .log-vrow .vbadge{
+  grid-column: 2;
+  justify-self: center;
+  margin: 0 4px;
   text-transform: uppercase;
   font-size: 9px;
   font-weight: 700;
@@ -462,6 +467,7 @@ var undiscordUiCss = (`
 #undiscord.verbose .log-vrow.log-success .vbadge{ color: #7ee7c6; border-color: rgba(126,231,198,.35); background: rgba(126,231,198,.12); }
 #undiscord.verbose .log-vrow.log-verb .vbadge{ color: #b4c6e7; border-color: rgba(180,198,231,.35); background: rgba(180,198,231,.12); }
 #undiscord.verbose .log-vrow .vmsg{
+  grid-column: 3;
   color: var(--v-text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -471,7 +477,7 @@ var undiscordUiCss = (`
 
 #undiscord:not(.verbose) .log-del{
   display: grid;
-  grid-template-columns: 88px 24px minmax(0, 1fr);
+  grid-template-columns: 88px 24px minmax(0, 1fr) auto;
   gap: 8px;
   padding: 8px 12px;
   margin: 0 0 2px;
@@ -485,7 +491,7 @@ var undiscordUiCss = (`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 0px;
   min-width: 88px;
   white-space: nowrap;
   padding: 4px 6px;
@@ -538,6 +544,12 @@ var undiscordUiCss = (`
   color: rgba(255,255,255,.62);
   letter-spacing: .02em;
   white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  align-self: center;
+  text-align: right;
 }
 #undiscord:not(.verbose) .log-del .content{
   font-size: 13px;
@@ -1034,7 +1046,7 @@ var undiscordUiCss = (`
 	    this.state.running = true;
 	    this.stats.startTime = new Date();
 
-	    log.success(`\nStarted at ${this.stats.startTime.toLocaleString()}`);
+	    log.success(`Started at ${this.stats.startTime.toLocaleString()}`);
       log.debug(
         `authorId = "${this.options.authorId || ''}"`,
         `guildId = "${this.options.guildId || ''}"`,
@@ -2272,7 +2284,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
     // NOTE: logArea is a <pre>; avoid whitespace/newlines which render as extra gaps.
     ui.logArea.insertAdjacentHTML(
       'beforeend',
-      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div><div class="meta">${escapeHTML(meta)}</div></div><img src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author">${escapeHTML(tag)}</div></div><div class="content">${escapeHTML(payload.content || '')}</div></div></div>`
+      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div></div><img src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author">${escapeHTML(tag)}</div></div><div class="content">${escapeHTML(payload.content || '')}</div></div><div class="meta">${escapeHTML(meta)}</div></div>`
     );
   }
 
