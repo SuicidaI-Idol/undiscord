@@ -627,6 +627,9 @@ var undiscordUiCss = (`
 	    deleteDelay: null, // Delay between each delete operation
 	    maxAttempt: 2, // Attempts to delete a single message if it fails
 	    askForConfirmation: true,
+      retryOnNetworkError: true,
+      maxNetworkRetries: 8,
+      networkRetryBaseDelay: 1000,
 	  };
 
 	  state = {
@@ -672,6 +675,36 @@ var undiscordUiCss = (`
 
 	    this.options.askForConfirmation = true;
 	  }
+
+    /** Re-check immédiatement après une suppression pour détecter la fin sans attendre searchDelay */
+    async quickCheckIfDone() {
+      const oldOffset = this.state.offset;
+
+      try {
+        // Repart de l'offset courant (souvent ok) ; sinon tu peux forcer à 0 si tu préfères
+        // this.state.offset = 0;
+
+        await this.search();
+        await this.filterResponse();
+
+        const hasMore = (this.state._messagesToDelete.length > 0) || (this.state._skippedMessages.length > 0);
+
+        if (!hasMore) {
+          log.verb('Quick check: no more messages returned. Ending now.');
+          this.state.running = false;
+          return true;
+        }
+
+        // Si y'a encore des messages (à delete ou à skip), on continue normalement
+        return false;
+      } catch (e) {
+        // En cas d'erreur (rate limit, etc.), on ne casse pas la run.
+        // On restaure l'offset et on laisse la boucle continuer.
+        this.state.offset = oldOffset;
+        log.warn('Quick check failed, continuing normally...', e);
+        return false;
+      }
+    }
 
 	  /** Automate the deletion process of multiple channels */
 	  async runBatch(queue) {
@@ -753,6 +786,7 @@ var undiscordUiCss = (`
 	        }
 
 	        await this.deleteMessagesFromList();
+          if (await this.quickCheckIfDone()) break;
 	      }
 	      else if (this.state._skippedMessages.length > 0) {
 	        // There are stuff, but nothing to delete (example a page full of system messages)
@@ -770,9 +804,10 @@ var undiscordUiCss = (`
 	      }
 
 	      // wait before next page (fix search page not updating fast enough)
-	      log.verb(`Waiting ${(this.options.searchDelay / 1000).toFixed(2)}s before next page...`);
-	      await wait(this.options.searchDelay);
-
+        if (this.state.running) {
+          log.verb(`Waiting ${(this.options.searchDelay / 1000).toFixed(2)}s before next page...`);
+          await wait(this.options.searchDelay);
+        }
 	    } while (this.state.running);
 
 	    this.stats.endTime = new Date();
@@ -824,31 +859,66 @@ var undiscordUiCss = (`
 	    else API_SEARCH_URL = `https://discord.com/api/v9/guilds/${this.options.guildId}/messages/`; // Server
 
 	    let resp;
-	    try {
-	      this.beforeRequest();
-	      resp = await fetch(API_SEARCH_URL + 'search?' + queryString([
-	        ['author_id', this.options.authorId || undefined],
-	        ['channel_id', (this.options.guildId !== '@me' ? this.options.channelId : undefined) || undefined],
-	        ['min_id', this.options.minId ? toSnowflake(this.options.minId) : undefined],
-	        ['max_id', this.options.maxId ? toSnowflake(this.options.maxId) : undefined],
-	        ['sort_by', 'timestamp'],
-	        ['sort_order', 'desc'],
-	        ['offset', this.state.offset],
-	        ['has', this.options.hasLink ? 'link' : undefined],
-	        ['has', this.options.hasFile ? 'file' : undefined],
-	        ['content', this.options.content || undefined],
-	        ['include_nsfw', this.options.includeNsfw ? true : undefined],
-	      ]), {
-	        headers: {
-	          'Authorization': this.options.authToken,
-	        }
-	      });
-	      this.afterRequest();
-	    } catch (err) {
-	      this.state.running = false;
-	      log.error('Search request threw an error:', err);
-	      throw err;
-	    }
+      // Retry sur erreurs réseau (pas de réponse HTTP)
+      let networkAttempt = 0;
+
+      while (true) {
+        try {
+          this.beforeRequest();
+          resp = await fetch(API_SEARCH_URL + 'search?' + queryString([
+            ['author_id', this.options.authorId || undefined],
+            ['channel_id', (this.options.guildId !== '@me' ? this.options.channelId : undefined) || undefined],
+            ['min_id', this.options.minId ? toSnowflake(this.options.minId) : undefined],
+            ['max_id', this.options.maxId ? toSnowflake(this.options.maxId) : undefined],
+            ['sort_by', 'timestamp'],
+            ['sort_order', 'desc'],
+            ['offset', this.state.offset],
+            ['has', this.options.hasLink ? 'link' : undefined],
+            ['has', this.options.hasFile ? 'file' : undefined],
+            ['content', this.options.content || undefined],
+            ['include_nsfw', this.options.includeNsfw ? true : undefined],
+          ]), {
+            headers: {
+              'Authorization': this.options.authToken,
+            }
+          });
+          this.afterRequest();
+          break; // ✅ fetch OK -> on sort de la boucle retry
+        } catch (err) {
+          const msg = String(err && (err.message || err));
+
+          // Si on n'est plus en running, on sort proprement
+          if (!this.state.running) {
+            log.error('Search aborted (not running).', err);
+            throw err;
+          }
+
+          // Retry seulement si activé
+          if (!this.options.retryOnNetworkError) {
+            this.state.running = false;
+            log.error('Search request threw an error:', err);
+            throw err;
+          }
+
+          networkAttempt++;
+          const max = this.options.maxNetworkRetries ?? 8;
+
+          if (networkAttempt > max) {
+            this.state.running = false;
+            log.error(`Search failed after ${max} network retries.`, err);
+            throw err;
+          }
+
+          // Backoff progressif + petit jitter
+          const base = this.options.networkRetryBaseDelay ?? 1000;
+          const delay = Math.min(30000, base * Math.pow(1.6, networkAttempt - 1)) + Math.floor(Math.random() * 250);
+
+          log.warn(`NetworkError on search (attempt ${networkAttempt}/${max}). Retrying in ${Math.round(delay)}ms...`, msg);
+          await wait(delay);
+          continue;
+        }
+      }
+
 
 	    // not indexed yet
 	    if (resp.status === 202) {
@@ -1363,17 +1433,20 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  return JSON.parse(LS.user_id_cache);
 	}
 
-	function getGuildId() {
-	  const m = location.href.match(/channels\/([\w@]+)\/(\d+)/);
-	  if (m) return m[1];
-	  else alert('Could not find the Guild ID!\nPlease make sure you are on a Server or DM.');
-	}
+  function getGuildId({ silent = false } = {}) {
+    const m = location.href.match(/channels\/([\w@]+)\/(\d+)/);
+    if (m) return m[1];
+    if (!silent) alert('Could not find the Guild ID!\nPlease make sure you are on a Server or DM.');
+    return null;
+  }
 
-	function getChannelId() {
-	  const m = location.href.match(/channels\/([\w@]+)\/(\d+)/);
-	  if (m) return m[2];
-	  else alert('Could not find the Channel ID!\nPlease make sure you are on a Channel or DM.');
-	}
+  function getChannelId({ silent = false } = {}) {
+    const m = location.href.match(/channels\/([\w@]+)\/(\d+)/);
+    if (m) return m[2];
+    if (!silent) alert('Could not find the Channel ID!\nPlease make sure you are on a Channel or DM.');
+    return null;
+  }
+
 
 	function fillToken() {
 	  try {
@@ -1605,10 +1678,22 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
     function safeAutofillFields() {
       if (undiscordCore?.state?.running) return;
 
-      try { $('input#authorId').value = getAuthorId() || $('input#authorId').value; } catch {}
-      try { $('input#guildId').value  = getGuildId()  || $('input#guildId').value; } catch {}
-      try { $('input#channelId').value = getChannelId() || $('input#channelId').value; } catch {}
+      try {
+        const v = getAuthorId();
+        if (v) $('input#authorId').value = v;
+      } catch {}
+
+      try {
+        const v = getGuildId({ silent: true });
+        if (v) $('input#guildId').value = v;
+      } catch {}
+
+      try {
+        const v = getChannelId({ silent: true });
+        if (v) $('input#channelId').value = v;
+      } catch {}
     }
+
 
     function toggleWindow() {
       const isOpen = ui.undiscordWindow.style.display !== 'none';
@@ -1644,10 +1729,31 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    const guildId = $('input#guildId').value = getGuildId();
 	    if (guildId === '@me') $('input#channelId').value = getChannelId();
 	  };
-	  $('button#getChannel').onclick = () => {
-	    $('input#channelId').value = getChannelId();
-	    $('input#guildId').value = getGuildId();
-	  };
+    $('button#getGuild').onclick = () => {
+      const guildInput = $('input#guildId');
+      const channelInput = $('input#channelId');
+
+      const g = getGuildId(); // affiche déjà l'alerte si introuvable
+      if (g) {
+        guildInput.value = g;
+        if (g === '@me') {
+          const c = getChannelId(); // affiche déjà l'alerte si introuvable
+          if (c) channelInput.value = c;
+        }
+      }
+    };
+
+    $('button#getChannel').onclick = () => {
+      const guildInput = $('input#guildId');
+      const channelInput = $('input#channelId');
+
+      const c = getChannelId(); // affiche déjà l'alerte si introuvable
+      if (c) channelInput.value = c;
+
+      const g = getGuildId(); // affiche déjà l'alerte si introuvable
+      if (g) guildInput.value = g;
+    };
+
 	  $('#redact').onchange = () => {
 	    const b = ui.undiscordWindow.classList.toggle('redact');
 	    if (b) alert('This mode will attempt to hide personal information, so you can screen share / take screenshots.\nAlways double check you are not sharing sensitive information!');
