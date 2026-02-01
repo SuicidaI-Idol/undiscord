@@ -168,7 +168,7 @@ var contrastFixCss = (`
 }
 `);
 var undiscordUiCss = (`
-/* ===== Undiscord : UI palette stable (ne dépend pas du thème Discord) ===== */
+/* ===== Undiscord: UI palette stable (does not depend on Discord theme) ===== */
 #undiscord{
   --u-bg: #0f1115;
   --u-panel: #151822;
@@ -321,10 +321,22 @@ var undiscordUiCss = (`
 
 /* Progress */
 #undiscord progress{
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
   background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+  height: 8px !important;
 }
 #undiscord progress::-webkit-progress-bar{
   background: rgba(255,255,255,.08) !important;
+  border-radius: 999px !important;
+}
+#undiscord progress::-webkit-progress-value{
+  background: #4c9aff !important;
+  border-radius: 999px !important;
 }
 /* Hide authorID */
 #undiscord.hide-author #authorId,
@@ -1190,7 +1202,7 @@ var undiscordUiCss = (`
 	    else API_SEARCH_URL = `https://discord.com/api/v9/guilds/${this.options.guildId}/messages/`; // Server
 
 	    let resp;
-      // Retry sur erreurs réseau (pas de réponse HTTP)
+      // Retry on network errors (no HTTP response)
       let networkAttempt = 0;
 
       while (true) {
@@ -1214,17 +1226,17 @@ var undiscordUiCss = (`
             }
           });
           this.afterRequest();
-          break; // ✅ fetch OK -> on sort de la boucle retry
+          break; // ✅ fetch OK -> exit retry loop
         } catch (err) {
           const msg = String(err && (err.message || err));
 
-          // Si on n'est plus en running, on sort proprement
+          // If no longer running, exit cleanly
           if (!this.state.running) {
             log.error('Search aborted (not running).', err);
             throw err;
           }
 
-          // Retry seulement si activé
+          // Retry only if enabled
           if (!this.options.retryOnNetworkError) {
             this.state.endReason = 'ERROR';
             this.state.running = false;
@@ -1241,7 +1253,7 @@ var undiscordUiCss = (`
             throw err;
           }
 
-          // Backoff progressif + petit jitter
+          // Progressive backoff + small jitter
           const base = this.options.networkRetryBaseDelay ?? 1000;
           const delay = Math.min(30000, base * Math.pow(1.6, networkAttempt - 1)) + Math.floor(Math.random() * 250);
 
@@ -1802,7 +1814,117 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	};
 	window.messagePicker = messagePicker;
 
-	function getToken() {
+	function getTokenFromWebpack(globalObj) {
+	  const chunkKeys = Object.keys(globalObj).filter(
+	    k => k.startsWith('webpackChunk') && Array.isArray(globalObj[k])
+	  );
+
+	  let req = null;
+	  let foundKey = null;
+	  for (const key of chunkKeys) {
+	    const chunk = globalObj[key];
+	    if (!chunk || typeof chunk.push !== 'function') continue;
+	    try {
+	      const tokenId = `__undiscord__${Date.now()}`;
+	      chunk.push([[tokenId], {}, r => { req = r; }]);
+	      if (req?.c) {
+	        foundKey = key;
+	        break;
+	      }
+	    } catch {}
+	  }
+
+	  if (!req && typeof globalObj.__webpack_require__ === 'function' && globalObj.__webpack_require__.c) {
+	    req = globalObj.__webpack_require__;
+	    foundKey = '__webpack_require__';
+	  }
+
+	  if (!req?.c) throw new Error('webpack require not found');
+
+	  const modules = Object.values(req.c);
+	  const mod = modules.find(m =>
+	    m?.exports?.default?.getToken ||
+	    m?.exports?.getToken
+	  );
+
+	  if (!mod) {
+	    throw new Error(`getToken module not found (chunk=${foundKey || 'unknown'})`);
+	  }
+
+	  if (mod?.exports?.default?.getToken) return mod.exports.default.getToken();
+	  if (mod?.exports?.getToken) return mod.exports.getToken();
+	  throw new Error('getToken export not callable');
+	}
+
+	function getTokenFromPageContext() {
+	  return new Promise((resolve, reject) => {
+	    const reqId = `undiscord_token_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+	    const timeoutMs = 3000;
+	    let done = false;
+
+	    function cleanup() {
+	      if (done) return;
+	      done = true;
+	      window.removeEventListener('message', onMessage);
+	    }
+
+	    function onMessage(event) {
+	      if (event.source !== window) return;
+	      const data = event.data;
+	      if (!data || data.source !== 'undiscord' || data.id !== reqId) return;
+	      cleanup();
+	      if (data.error) {
+	        reject(new Error(data.error));
+	      } else {
+	        resolve(data.token || '');
+	      }
+	    }
+
+	    window.addEventListener('message', onMessage);
+
+	    const script = document.createElement('script');
+	    script.textContent = `(function(){try{
+  var globalObj = window;
+  var chunkKeys = Object.keys(globalObj).filter(function(k){return k.indexOf('webpackChunk')===0 && Array.isArray(globalObj[k]);});
+  var req = null;
+  var foundKey = null;
+  for (var i=0;i<chunkKeys.length;i++){
+    var key = chunkKeys[i];
+    var chunk = globalObj[key];
+    if (!chunk || typeof chunk.push !== 'function') continue;
+    try {
+      var tokenId = '__undiscord__' + Date.now();
+      chunk.push([[tokenId], {}, function(r){ req = r; }]);
+      if (req && req.c){ foundKey = key; break; }
+    } catch(e){}
+  }
+  if (!req && typeof globalObj.__webpack_require__ === 'function' && globalObj.__webpack_require__.c){
+    req = globalObj.__webpack_require__;
+    foundKey = '__webpack_require__';
+  }
+  if (!req || !req.c) throw new Error('webpack require not found');
+  var modules = Object.values(req.c);
+  var mod = modules.find(function(m){ return (m && m.exports && m.exports.default && m.exports.default.getToken) || (m && m.exports && m.exports.getToken); });
+  if (!mod) throw new Error('getToken module not found (chunk=' + (foundKey || 'unknown') + ')');
+  var token = null;
+  if (mod.exports && mod.exports.default && mod.exports.default.getToken) token = mod.exports.default.getToken();
+  else if (mod.exports && mod.exports.getToken) token = mod.exports.getToken();
+  else throw new Error('getToken export not callable');
+  window.postMessage({source:'undiscord', id:'${reqId}', token: token}, '*');
+}catch(e){
+  window.postMessage({source:'undiscord', id:'${reqId}', error: String(e && (e.message || e))}, '*');
+}})();`;
+	    (document.head || document.documentElement).appendChild(script);
+	    script.remove();
+
+	    setTimeout(() => {
+	      cleanup();
+	      reject(new Error('token request timeout'));
+	    }, timeoutMs);
+	  });
+	}
+
+	async function getToken() {
 	  window.dispatchEvent(new Event('beforeunload'));
 	  const LS = document.body.appendChild(document.createElement('iframe')).contentWindow.localStorage;
 	  try {
@@ -1810,7 +1932,17 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  } catch {
 	    log.info('Could not automatically detect Authorization Token in local storage!');
 	    log.info('Attempting to grab token using webpack');
-	    return (window.webpackChunkdiscord_app.push([[''], {}, e => { window.m = []; for (let c in e.c) window.m.push(e.c[c]); }]), window.m).find(m => m?.exports?.default?.getToken !== void 0).exports.default.getToken();
+	    try {
+	      return getTokenFromWebpack(window);
+	    } catch (err) {
+	      log.warn('Webpack token extraction failed in content world, trying page context...', err);
+	      try {
+	        return await getTokenFromPageContext();
+	      } catch (err2) {
+	        log.warn('Page-context token extraction failed.', err2);
+	        throw err2;
+	      }
+	    }
 	  }
 	}
 
@@ -1834,14 +1966,14 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
   }
 
 
-	function fillToken() {
+	async function fillToken() {
 	  try {
-	    return getToken();
+	    return await getToken();
 	  } catch (err) {
-	    log.verb(err);
-	    log.error('Could not automatically detect Authorization Token!');
-	    log.info('Please make sure Undiscord is up to date');
-	    log.debug('Alternatively, you can try entering a Token manually in the "Advanced Settings" section.');
+	    // Discord changes frequently; auto token extraction is brittle and may stop working.
+	    log.warn('Could not automatically detect Authorization Token (Discord likely changed how it stores/exposes it).');
+	    log.info('Please enter the token manually in the "Advanced settings" section.');
+	    log.debug('Auto-detection failure details:', err);
 	  }
 	  return '';
 	}
@@ -1944,12 +2076,12 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  ui.undiscordBtn = createElm(buttonHtml);
 	  ui.undiscordBtn.onclick = toggleWindow;
 
-    // ====== ROBUST MOUNT (langue-free, sans patch history) ======
+    // ====== ROBUST MOUNT (language-free, without patch history) ======
     (function mountUndiscordButtonRobust(btn, onRouteMaybeChanged) {
       const ROOT_SEL = '#app-mount';
       const BTN_ID = 'undicord-btn';
 
-      // Assure un id stable (utile pour éviter les doublons)
+      // Ensure a stable id (useful to avoid duplicates)
       if (!btn.id) btn.id = BTN_ID;
 
       function isVisible(el) {
@@ -1959,7 +2091,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       }
 
       function findTopCombobox() {
-        // Discord a souvent plusieurs combobox. On prend celle visible la plus haute.
+        // Discord often has multiple comboboxes. Pick the highest visible one.
         const all = Array.from(document.querySelectorAll(
           `${ROOT_SEL} [role="combobox"][contenteditable="true"]`
         ));
@@ -1970,7 +2102,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       }
 
       function findToolbarFrom(el) {
-        // Remonte jusqu'à un conteneur "haut" qui contient plein de boutons
+        // Walk up to a "top" container that contains many buttons
         let p = el;
         for (let i = 0; i < 40 && p; i++) {
           if (p.nodeType === 1) {
@@ -1978,7 +2110,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
             if (top <= 180) {
               const buttons = p.querySelectorAll?.('[role="button"]').length || 0;
               const hasCombo = !!p.querySelector?.('[role="combobox"][contenteditable="true"]');
-              // heuristique "toolbar"
+              // "toolbar" heuristic
               if (buttons >= 3 && hasCombo) return p;
             }
           }
@@ -1988,7 +2120,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       }
 
       function findSearchBlock(combobox, toolbar) {
-        // Cherche un bloc qui contient la combobox + au moins 1 svg (loupe/clear)
+        // Find a block that contains the combobox + at least 1 svg (search/clear)
         let p = combobox;
         for (let i = 0; i < 18 && p && p !== toolbar; i++) {
           if (toolbar.contains(p)) {
@@ -2011,7 +2143,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
         const toolbar = findToolbarFrom(combobox);
         if (!toolbar) return false;
 
-        // Si déjà dans cette toolbar, on s'assure juste du style
+        // If already in this toolbar, just ensure styling
         if (toolbar.contains(btn)) {
           btn.style.order = '9999';
           btn.style.marginLeft = '8px';
@@ -2021,7 +2153,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
         const searchBlock = findSearchBlock(combobox, toolbar);
 
-        // On insère après le bloc search le plus "haut niveau" sous la toolbar
+        // Insert after the most "top-level" search block under the toolbar
         if (searchBlock) {
           let top = searchBlock;
           while (top.parentElement && top.parentElement !== toolbar) top = top.parentElement;
@@ -2036,7 +2168,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
         return true;
       }
 
-      // Scheduler anti-spam
+      // Anti-spam scheduler
       let scheduled = false;
       const schedule = () => {
         if (scheduled) return;
@@ -2045,20 +2177,20 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
           scheduled = false;
 
           const ok = ensureMounted();
-          // Optionnel : si tu veux auto-refresh tes champs quand Discord change de vue
+          // Optional: auto-refresh fields when Discord changes view
           if (ok && typeof onRouteMaybeChanged === 'function') onRouteMaybeChanged();
         });
       };
 
-      // Observe DOM (Discord = SPA, tout se voit dans le DOM)
+      // Observe DOM (Discord = SPA, everything shows up in the DOM)
       const root = document.querySelector(ROOT_SEL);
       if (!root) return;
 
-      // Observer large mais throttlé par schedule()
+      // Broad observer, throttled by schedule()
       const obs = new MutationObserver(schedule);
       obs.observe(root, { childList: true, subtree: true });
 
-      // Premier mount
+      // Initial mount
       schedule();
     })(ui.undiscordBtn, onConversationChange);
 
@@ -2093,7 +2225,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
         ui.undiscordWindow.style.display = '';
         ui.undiscordBtn.style.color = 'var(--interactive-active)';
 
-        // Auto-fill uniquement à l’ouverture, et seulement si pas en cours
+        // Auto-fill only on open, and only if not running
         safeAutofillFields();
       }
     }
@@ -2140,11 +2272,11 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       const guildInput = $('input#guildId');
       const channelInput = $('input#channelId');
 
-      const g = getGuildId(); // affiche déjà l'alerte si introuvable
+      const g = getGuildId(); // already shows alert if not found
       if (g) {
         guildInput.value = g;
         if (g === '@me') {
-          const c = getChannelId(); // affiche déjà l'alerte si introuvable
+          const c = getChannelId(); // already shows alert if not found
           if (c) channelInput.value = c;
         }
       }
@@ -2154,10 +2286,10 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       const guildInput = $('input#guildId');
       const channelInput = $('input#channelId');
 
-      const c = getChannelId(); // affiche déjà l'alerte si introuvable
+      const c = getChannelId(); // already shows alert if not found
       if (c) channelInput.value = c;
 
-      const g = getGuildId(); // affiche déjà l'alerte si introuvable
+      const g = getGuildId(); // already shows alert if not found
       if (g) guildInput.value = g;
     };
 
@@ -2184,7 +2316,9 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    if (id) $('input#maxId').value = id;
 	    toggleWindow();
 	  };
-	  $('button#getToken').onclick = () => $('input#token').value = fillToken();
+	  $('button#getToken').onclick = async () => {
+	    $('input#token').value = await fillToken();
+	  };
 
 	  // sync delays
 	  $('input#searchDelay').onchange = (e) => {
@@ -2245,7 +2379,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       const disc = parseInt(author?.discriminator || '0', 10);
 
       if (id && avatar) {
-        // png ok, tu peux mettre .webp aussi
+        // png is OK; you can use .webp too
         return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=32`;
       }
       // fallback Discord default avatar
@@ -2447,7 +2581,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  const deleteDelay = parseInt($('input#deleteDelay').value.trim());
 
 	  // token
-	  const authToken = $('input#token').value.trim() || fillToken();
+	  const authToken = $('input#token').value.trim() || await fillToken();
 	  if (!authToken) return; // get token already logs an error.
 
 	  // validate input
