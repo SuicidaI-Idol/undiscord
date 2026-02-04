@@ -78,7 +78,7 @@
 #undiscord.redact x:hover { position: relative; }
 #undiscord.redact x:hover::after { content: "Redacted information (Streamer mode: ON)"; position: absolute; display: inline-block; top: -32px; left: -20px; padding: 4px; width: 150px; font-size: 8pt; text-align: center; white-space: pre-wrap; background-color: var(--background-floating); -webkit-box-shadow: var(--elevation-high); box-shadow: var(--elevation-high); color: var(--text-default); border-radius: 5px; pointer-events: none; }
 #undiscord.redact [priv] { -webkit-text-security: disc !important; }
-#undiscord :disabled { display: none; }
+#undiscord :disabled { opacity: 0.6; cursor: not-allowed; }
 /**** layout and utility classes ****/
 #undiscord,
 #undiscord * { box-sizing: border-box; }
@@ -101,7 +101,7 @@
 #undicord-btn.running { color: var(--button-danger-background) !important; }
 #undicord-btn.running progress { display: block; }
 /**** Undiscord Interface ****/
-#undiscord { position: fixed; z-index: 100; top: 58px; right: 10px; display: flex; flex-direction: column; width: 800px; height: 80vh; min-width: 610px; max-width: 100vw; min-height: 448px; max-height: 100vh; color: var(--text-normal); border-radius: 4px; background-color: var(--background-secondary); box-shadow: var(--elevation-stroke), var(--elevation-high); will-change: top, left, width, height; }
+#undiscord { position: fixed; z-index: 100; top: 58px; right: 10px; display: flex; flex-direction: column; width: 940px; height: 80vh; min-width: 720px; max-width: 100vw; min-height: 448px; max-height: 100vh; color: var(--text-normal); border-radius: 4px; background-color: var(--background-secondary); box-shadow: var(--elevation-stroke), var(--elevation-high); will-change: top, left, width, height; }
 #undiscord .header .icon { cursor: pointer; }
 #undiscord .window-body { height: calc(100% - 48px); }
 #undiscord .sidebar { overflow: hidden scroll; overflow-y: auto; width: 270px; min-width: 250px; height: 100%; max-height: 100%; padding: 8px; background: var(--bg-overlay-4, var(--background-base-lowest)); }
@@ -344,6 +344,37 @@ var undiscordUiCss = (`
   -webkit-text-security: disc !important;
   text-security: disc !important;
 }
+
+/* Hide message text (compact + verbose log UIs) */
+#undiscord .msgHidden { display: none; color: var(--u-muted) !important; font-style: italic; }
+#undiscord.hide-text .msgText { display: none; }
+#undiscord.hide-text .msgHidden { display: inline; }
+
+/* Hide author identity in logs (compact: avatar + display name; verbose: author id) */
+#undiscord .authorHidden { display: none; color: var(--u-muted) !important; font-style: italic; }
+#undiscord.hide-author .authorText { display: none; }
+#undiscord.hide-author .authorHidden { display: inline; }
+#undiscord.hide-author img.authorAvatar { display: none !important; }
+
+/* Compact-mode polish when hiding */
+#undiscord.hide-author:not(.verbose) .log-del{
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  column-gap: 10px;
+}
+#undiscord.hide-author:not(.verbose) .log-del img.authorAvatar{ display: none !important; }
+#undiscord.hide-author:not(.verbose) .log-del .head{ display: none; }
+#undiscord.hide-author:not(.verbose) .log-del .txt{ min-width: 0; }
+#undiscord.hide-author:not(.verbose) .log-del .content{ margin-top: 2px; }
+#undiscord.hide-text:not(.verbose) .log-del .msgHidden{
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
 /* ===== FINISHED STATE ===== */
 #undiscord.finished #progressBar::-webkit-progress-value { background: #2ecc71 !important; }
 #undiscord.finished #progressBar { border-radius: 999px !important; }
@@ -378,7 +409,7 @@ var undiscordUiCss = (`
   position: relative;
 }
 #undiscord.hide-author x.priv-author:hover::after {
-  content: "Redacted Author ID (Hide Author ID: ON)";
+  content: "Redacted Author ID (Hide Author ID/Text: ON)";
   position: absolute;
   display: inline-block;
   top: -32px;
@@ -832,8 +863,11 @@ var undiscordUiCss = (`
               <label class="row" title="Hide sensitive information on your screen for taking screenshots" style="margin-right:8px;">
                 <input id="redact" type="checkbox"> Streamer mode
               </label>
-              <label class="row" title="Always hide Author ID field even if Streamer mode is OFF" style="margin-right:8px;">
-                <input id="alwaysHideAuthor" type="checkbox" checked> Hide Author ID
+              <label class="row" title="Hide author ID and name in the logs" style="margin-right:8px;">
+                <input id="hideAuthorText" type="checkbox"> Hide Author ID/Text
+              </label>
+              <label class="row" title="Hide message text in the logs" style="margin-right:8px;">
+                <input id="hideMessageText" type="checkbox"> Hide message text
               </label>
               <label class="row" title="Verbose console (all logs). Off = clean delete-only view.">
                 <input id="verboseMode" type="checkbox"> Verbose console
@@ -1186,7 +1220,6 @@ var undiscordUiCss = (`
 	    );
 
 	    if (!answer) {
-	      log.error('Aborted by you!');
 	      return false;
 	    }
 	    else {
@@ -1389,7 +1422,7 @@ var undiscordUiCss = (`
 	  async deleteMessagesFromList() {
 	    for (let i = 0; i < this.state._messagesToDelete.length; i++) {
 	      const message = this.state._messagesToDelete[i];
-	      if (!this.state.running) return log.error('Stopped by you!');
+	      if (!this.state.running) return;
 
         const idx = this.state.delCount + this.state.failCount + 1;
         const max = Math.max(this.state.grandTotal, idx);
@@ -2001,6 +2034,9 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  percent: null,
 
     verboseMode: null,
+    hideAuthorText: null,
+    hideMessageText: null,
+    redact: null,
 	};
 	const $ = s => ui.undiscordWindow.querySelector(s);
 
@@ -2238,6 +2274,9 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  ui.progressIcon = ui.undiscordBtn.querySelector('progress');
 	  ui.percent = $('#progressPercent');
     ui.verboseMode = $('#verboseMode');
+    ui.hideAuthorText = $('#hideAuthorText');
+    ui.hideMessageText = $('#hideMessageText');
+    ui.redact = $('#redact');
     function applyVerboseUI() {
       const on = !!ui.verboseMode.checked;
       ui.undiscordWindow.classList.toggle('verbose', on);
@@ -2293,14 +2332,88 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       if (g) guildInput.value = g;
     };
 
-	  $('#redact').onchange = () => {
-	    const b = ui.undiscordWindow.classList.toggle('redact');
-	    if (b) alert('This mode will attempt to hide personal information, so you can screen share / take screenshots.\nAlways double check you are not sharing sensitive information!');
+    let savedHideAuthor = false;
+    let savedHideMessage = false;
+    function applyRedactInputs(on) {
+      const ids = ['authorId', 'guildId', 'channelId'];
+      for (const id of ids) {
+        const input = $(`input#${id}`);
+        if (!input) continue;
+        if (on) {
+          input.dataset.udPrevType = input.dataset.udPrevType || input.type || 'text';
+          input.type = 'password';
+        } else if (input.dataset.udPrevType) {
+          input.type = input.dataset.udPrevType;
+        }
+      }
+    }
+    function applyRedactUI() {
+      const on = !!ui.redact?.checked;
+      ui.undiscordWindow.classList.toggle('redact', on);
+
+      if (on) {
+        savedHideAuthor = !!ui.hideAuthorText?.checked;
+        savedHideMessage = !!ui.hideMessageText?.checked;
+        if (ui.hideAuthorText) {
+          ui.hideAuthorText.checked = true;
+          ui.hideAuthorText.disabled = true;
+        }
+        if (ui.hideMessageText) {
+          ui.hideMessageText.checked = true;
+          ui.hideMessageText.disabled = true;
+        }
+      } else {
+        if (ui.hideAuthorText) {
+          ui.hideAuthorText.disabled = false;
+          ui.hideAuthorText.checked = savedHideAuthor;
+        }
+        if (ui.hideMessageText) {
+          ui.hideMessageText.disabled = false;
+          ui.hideMessageText.checked = savedHideMessage;
+        }
+      }
+
+      applyRedactInputs(on);
+      applyPrivacyUI();
+
+      // Re-render logs so verbose lines get redacted immediately.
+      const mode = ui.verboseMode?.checked ? 'verbose' : 'compact';
+      renderLogsForMode(mode);
+      if (ui.autoScroll?.checked) {
+        requestAnimationFrame(() => scrollLogToBottom({ smooth: true }));
+      }
+    }
+	  ui.redact.onchange = () => {
+	    if (!ui.redact.checked) {
+        alert('Streamer mode is OFF. Sensitive information may be visible.\nPlease double check before sharing your screen.');
+      }
+      applyRedactUI();
 	  };
-    $('#alwaysHideAuthor').onchange = (e) => {
-      ui.undiscordWindow.classList.toggle('hide-author', e.target.checked);
-    };
-    ui.undiscordWindow.classList.toggle('hide-author', $('#alwaysHideAuthor').checked);
+    function applyPrivacyUI() {
+      const hideAuthorText = !!ui.hideAuthorText?.checked;
+      const hideMessageText = !!ui.hideMessageText?.checked;
+      ui.undiscordWindow.classList.toggle('hide-author', hideAuthorText);
+      ui.undiscordWindow.classList.toggle('hide-text', hideMessageText);
+
+      // Chrome does not consistently support -webkit-text-security on inputs;
+      // switching the input type is reliable across browsers.
+      try {
+        const authorInput = $('input#authorId');
+        if (authorInput) {
+          if (hideAuthorText) {
+            authorInput.dataset.udAuthorType = authorInput.dataset.udAuthorType || authorInput.type || 'text';
+            authorInput.type = 'password';
+          } else {
+            authorInput.type = authorInput.dataset.udAuthorType || 'text';
+          }
+        }
+      } catch {}
+    }
+
+    ui.hideAuthorText?.addEventListener('change', applyPrivacyUI);
+    ui.hideMessageText?.addEventListener('change', applyPrivacyUI);
+    applyPrivacyUI();
+    applyRedactUI();
 
 	  $('#pickMessageAfter').onclick = async () => {
 	    alert('Select a message on the chat.\nThe message below it will be deleted.');
@@ -2397,6 +2510,62 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
     ).join('\t');
   }
 
+  function getCurrentAuthorId() {
+    try {
+      const v = $('input#authorId')?.value?.trim();
+      if (v) return v;
+    } catch {}
+    try {
+      const v = undiscordCore?.options?.authorId;
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    } catch {}
+    return '';
+  }
+
+  function getCurrentGuildId() {
+    try {
+      const v = $('input#guildId')?.value?.trim();
+      if (v) return v;
+    } catch {}
+    try {
+      const v = undiscordCore?.options?.guildId;
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    } catch {}
+    return '';
+  }
+
+  function getCurrentChannelId() {
+    try {
+      const v = $('input#channelId')?.value?.trim();
+      if (v) return v;
+    } catch {}
+    try {
+      const v = undiscordCore?.options?.channelId;
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    } catch {}
+    return '';
+  }
+
+  function redactSensitiveInText(text) {
+    let result = escapeHTML(text || '');
+    const ids = [getCurrentAuthorId(), getCurrentGuildId(), getCurrentChannelId()].filter(Boolean);
+    for (const id of ids) {
+      const safe = escapeHTML(id);
+      if (safe) result = result.split(safe).join('[hidden]');
+    }
+    return result;
+  }
+
+  function renderWithAuthorIdSpans(text) {
+    const id = getCurrentAuthorId();
+    if (!id) return escapeHTML(text || '');
+    const raw = String(text || '');
+    const parts = raw.split(id);
+    if (parts.length === 1) return escapeHTML(raw);
+    const redaction = `<span class="authorText authorId">${escapeHTML(id)}</span><span class="authorHidden authorId">[hidden]</span>`;
+    return parts.map(p => escapeHTML(p)).join(redaction);
+  }
+
   function scrollLogToBottom({ smooth = false } = {}) {
     if (!ui?.logArea) return;
     const top = ui.logArea.scrollHeight;
@@ -2415,24 +2584,29 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
     const date = ts.toLocaleDateString();
     const tag = payload.author ? (payload.author.global_name || payload.author.username || 'Unknown') : 'Unknown';
     const meta = payload.meta || '';
+    const content = payload.content || '';
     // NOTE: logArea is a <pre>; avoid whitespace/newlines which render as extra gaps.
     ui.logArea.insertAdjacentHTML(
       'beforeend',
-      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div></div><img src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author">${escapeHTML(tag)}</div></div><div class="content">${escapeHTML(payload.content || '')}</div></div><div class="meta">${escapeHTML(meta)}</div></div>`
+      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div></div><img class="authorAvatar" src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author"><span class="authorText">${escapeHTML(tag)}</span><span class="authorHidden">[hidden]</span></div></div><div class="content"><span class="msgText">${escapeHTML(content)}</span><span class="msgHidden">[hidden]</span></div></div><div class="meta">${escapeHTML(meta)}</div></div>`
     );
   }
 
   function appendVerboseLog(entry) {
     const time = entry.time.toLocaleTimeString([], { hour12: false });
     const badge = entry.type || 'log';
-    const text = entry.type === 'del'
-      ? `${entry.args[0]?.meta || 'Deleted'} — ${entry.args[0]?.content || ''}`
-      : formatArgs(entry.args);
+    const authorId = entry.args[0]?.author?.id || '';
+    const authorIdHtml = authorId
+      ? ` <span class="authorText authorId">(${escapeHTML(authorId)})</span><span class="authorHidden authorId">(hidden)</span>`
+      : '';
+    const msgHtml = entry.type === 'del'
+      ? `<span class="vmeta">${escapeHTML(entry.args[0]?.meta || 'Deleted')}</span>${authorIdHtml} — <span class="msgText">${escapeHTML(entry.args[0]?.content || '')}</span><span class="msgHidden">[hidden]</span>`
+      : (ui.redact?.checked ? redactSensitiveInText(formatArgs(entry.args)) : renderWithAuthorIdSpans(formatArgs(entry.args)));
 
     // NOTE: logArea is a <pre>; avoid whitespace/newlines which render as extra gaps.
     ui.logArea.insertAdjacentHTML(
       'beforeend',
-      `<div class="log log-vrow log-${escapeHTML(entry.type)}"><div class="vtime">${escapeHTML(time)}</div><div class="vbadge">${escapeHTML(badge)}</div><div class="vmsg">${escapeHTML(text)}</div></div>`
+      `<div class="log log-vrow log-${escapeHTML(entry.type)}"><div class="vtime">${escapeHTML(time)}</div><div class="vbadge">${escapeHTML(badge)}</div><div class="vmsg">${msgHtml}</div></div>`
     );
   }
 
