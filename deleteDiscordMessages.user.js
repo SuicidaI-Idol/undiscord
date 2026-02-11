@@ -736,7 +736,7 @@ var undiscordUiCss = (`
                         <label><input id="hasFile" type="checkbox">has: file</label>
                     </div>
                     <div class="sectionDescription">
-                        <label><input id="includePinned" type="checkbox">Include pinned</label>
+                        <label><input id="includePinned" type="checkbox" checked>Include pinned</label>
                     </div>
                 </fieldset>
                 <hr>
@@ -958,7 +958,7 @@ var undiscordUiCss = (`
 	    hasLink: null, // Filter messages that contains link
 	    hasFile: null, // Filter messages that contains file
 	    includeNsfw: null, // Search in NSFW channels
-	    includePinned: null, // Delete messages that are pinned
+	    includePinned: true, // Delete messages that are pinned
 	    pattern: null, // Only delete messages that match the regex (insensitive)
 	    searchDelay: null, // Delay each time we fetch for more messages
 	    deleteDelay: null, // Delay between each delete operation
