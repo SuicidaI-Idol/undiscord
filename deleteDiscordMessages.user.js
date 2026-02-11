@@ -1384,7 +1384,7 @@ var undiscordUiCss = (`
 	    // we can only delete some types of messages, system messages are not deletable.
 	    let messagesToDelete = discoveredMessages;
 	    messagesToDelete = messagesToDelete.filter(msg => msg.type === 0 || (msg.type >= 6 && msg.type <= 21));
-	    messagesToDelete = messagesToDelete.filter(msg => msg.pinned ? this.options.includePinned : true);
+	    messagesToDelete = messagesToDelete.filter(msg => msg.pinned ? this.options.includePinned : true); //delete pinned messages
 
 	    // custom filter of messages
 	    try {
