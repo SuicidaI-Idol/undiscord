@@ -113,6 +113,29 @@
 #undiscord #logArea { font-family: Consolas, Liberation Mono, Menlo, Courier, monospace; font-size: 0.75rem; overflow: auto; padding: 10px; user-select: text; flex-grow: 1; flex-grow: 1; cursor: auto; }
 #undiscord .tbar { padding: 8px; background-color: var(--bg-overlay-2, var(--__header-bar-background)); }
 #undiscord .tbar button { margin-right: 4px; margin-bottom: 4px; }
+#undiscord .tbar .progressRow { gap: 8px; align-items: center; justify-content: flex-start; padding: 2px 0 0; width: 100%; }
+#undiscord .tbar .progressRow #progressBar { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 0; }
+#undiscord #progressBarPercent {
+  width: 56px;
+  min-width: 56px;
+  padding: 2px 0 0;
+  height: 24px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--u-text);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+}
 #undiscord .footer { cursor: se-resize; padding-right: 30px; }
 #undiscord .footer #progressPercent { padding: 0 1em; font-size: small; color: var(--interactive-muted); flex-grow: 1; }
 .resize-handle { position: absolute; bottom: -15px; right: -15px; width: 30px; height: 30px; transform: rotate(-45deg); background: repeating-linear-gradient(0, var(--background-modifier-accent), var(--background-modifier-accent) 1px, transparent 2px, transparent 4px); cursor: nwse-resize; }
@@ -238,7 +261,6 @@ var undiscordUiCss = (`
   font-size: 12px;
   line-height: 16px;
 }
-#undiscord .sidebar input,
 #undiscord .sidebar .input,
 #undiscord .sidebar input[type="text"],
 #undiscord .sidebar input[type="search"],
@@ -248,6 +270,12 @@ var undiscordUiCss = (`
   height: 38px !important;
   font-size: 14px !important;
   padding: 8px 10px !important;
+}
+#undiscord .sidebar input[type="checkbox"]{
+  height: auto !important;
+  width: auto !important;
+  margin-right: 8px;
+  padding: 0 !important;
 }
 #undiscord .main{
   background: var(--u-bg) !important;
@@ -308,6 +336,39 @@ var undiscordUiCss = (`
   border-bottom: none !important;
 }
 
+/* Conversation badge */
+#undiscord .convBadge{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  max-width: 420px;
+  overflow: hidden;
+}
+#undiscord .convBadge img{
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.18);
+}
+#undiscord .convBadge .convName{
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--u-text) !important;
+  padding-right: 2px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+#undiscord.verbose .convBadge{
+  display: none !important;
+}
+
 /* Log */
 #undiscord #logArea{
   background: transparent !important;
@@ -328,15 +389,18 @@ var undiscordUiCss = (`
   border: 1px solid rgba(255,255,255,.12) !important;
   border-radius: 999px !important;
   overflow: hidden !important;
-  height: 8px !important;
+  height: 10px !important;
 }
 #undiscord progress::-webkit-progress-bar{
   background: rgba(255,255,255,.08) !important;
   border-radius: 999px !important;
 }
 #undiscord progress::-webkit-progress-value{
-  background: #4c9aff !important;
+  background: linear-gradient(90deg, #4c9aff, #66b4ff) !important;
   border-radius: 999px !important;
+}
+#undiscord #progressBarPercent{
+  color: rgba(255,255,255,.92) !important;
 }
 /* Hide authorID */
 #undiscord.hide-author #authorId,
@@ -632,7 +696,7 @@ var undiscordUiCss = (`
 `);
 
 	var undiscordTemplate = (`
-<div id="undiscord" class="browser container" style="display:none;">
+<div id="undiscord" class="browser container hide-sidebar" style="display:none;">
 
     <div class="header">
         <svg class="icon" aria-hidden="false" width="24" height="24" viewBox="0 0 24 24">
@@ -655,7 +719,7 @@ var undiscordUiCss = (`
     </div>
     <div class="window-body" style="display: flex; flex-direction: row;">
         <div class="sidebar scroll">
-            <details open>
+            <details>
                 <summary>General</summary>
                 <fieldset>
                     <legend>
@@ -847,6 +911,24 @@ var undiscordUiCss = (`
                 </fieldset>
             </details>
             <hr>
+            <details>
+                <summary>Display options</summary>
+                <fieldset>
+                    <div class="sectionDescription">
+                        <label class="row"><input id="redact" type="checkbox"> Streamer mode</label>
+                    </div>
+                    <div class="sectionDescription">
+                        <label class="row"><input id="hideAuthorText" type="checkbox"> Hide Author ID/Text</label>
+                    </div>
+                    <div class="sectionDescription">
+                        <label class="row"><input id="hideMessageText" type="checkbox"> Hide message text</label>
+                    </div>
+                    <div class="sectionDescription">
+                        <label class="row"><input id="verboseMode" type="checkbox"> Verbose console</label>
+                    </div>
+                </fieldset>
+            </details>
+            <hr>
             <div></div>
             <div class="info">
                 Undiscord {{VERSION}}
@@ -857,26 +939,18 @@ var undiscordUiCss = (`
           <div class="tbar col">
             <div class="row">
               <button id="toggleSidebar" class="sizeMedium icon">☰</button>
+              <div id="convBadge" class="convBadge" style="display:none;">
+                  <img id="convAvatar" class="convAvatar" alt="">
+                  <span id="convName" class="convName"></span>
+              </div>
               <button id="start" class="sizeMedium danger" style="width: 150px;" title="Start the deletion process">▶︎ Delete</button>
               <button id="stop" class="sizeMedium" title="Stop the deletion process" disabled>🛑 Stop</button>
               <button id="clear" class="sizeMedium">Clear log</button>
-              <label class="row" title="Hide sensitive information on your screen for taking screenshots" style="margin-right:8px;">
-                <input id="redact" type="checkbox"> Streamer mode
-              </label>
-              <label class="row" title="Hide author ID and name in the logs" style="margin-right:8px;">
-                <input id="hideAuthorText" type="checkbox"> Hide Author ID/Text
-              </label>
-              <label class="row" title="Hide message text in the logs" style="margin-right:8px;">
-                <input id="hideMessageText" type="checkbox"> Hide message text
-              </label>
-              <label class="row" title="Verbose console (all logs). Off = clean delete-only view.">
-                <input id="verboseMode" type="checkbox"> Verbose console
-              </label>
-
             </div>
 
-            <div class="row">
+            <div class="row progressRow">
               <progress id="progressBar" style="display:none;"></progress>
+              <span id="progressBarPercent" style="display:none;">0%</span>
             </div>
 
             <div class="doneBanner" id="doneBanner">✅ Terminé : suppression terminée avec succès.</div>
@@ -2031,12 +2105,16 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  // progress handler
 	  progressMain: null,
 	  progressIcon: null,
+	  progressBarPercent: null,
 	  percent: null,
 
     verboseMode: null,
     hideAuthorText: null,
     hideMessageText: null,
     redact: null,
+    convBadge: null,
+    convName: null,
+    convAvatar: null,
 	};
 	const $ = s => ui.undiscordWindow.querySelector(s);
 
@@ -2062,15 +2140,17 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
     }
 
     let lastRoute = location.pathname;
+    let requestButtonRemount = () => {};
 
     function onConversationChange() {
       const route = location.pathname;
-      if (route === lastRoute) return;
-      lastRoute = route;
-
-      if (isUndiscordOpen() && !undiscordCore.state.running) {
-        safeAutofillFields();
+      if (route !== lastRoute) {
+        lastRoute = route;
+        if (isUndiscordOpen() && !undiscordCore.state.running) {
+          safeAutofillFields();
+        }
       }
+      scheduleConversationBadgeUpdate();
     }
 
 
@@ -2081,7 +2161,10 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
       history.pushState = function () {
         const r = push.apply(this, arguments);
-        queueMicrotask(() => { onConversationChange(); schedule(); });
+        queueMicrotask(() => {
+          onConversationChange();
+          requestButtonRemount();
+        });
         return r;
       };
 
@@ -2217,6 +2300,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
           if (ok && typeof onRouteMaybeChanged === 'function') onRouteMaybeChanged();
         });
       };
+      requestButtonRemount = schedule;
 
       // Observe DOM (Discord = SPA, everything shows up in the DOM)
       const root = document.querySelector(ROOT_SEL);
@@ -2250,6 +2334,249 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       } catch {}
     }
 
+    function isVisible(el) {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0;
+    }
+
+    function isValidDiscordAvatarUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      return /https:\/\/(cdn|media)\.discord(app)?\.com\/(avatars|embed\/avatars|icons|guilds|users)\//.test(url);
+    }
+
+    function normalizeConvName(text) {
+      return String(text || '')
+        .replace(/\s*\((?:message privé|message prive|private message)\)\s*$/i, '')
+        .trim();
+    }
+
+    function isGenericConversationLabel(text) {
+      const t = normalizeConvName(text).toLowerCase();
+      return (
+        t === 'message prive' ||
+        t === 'message privé' ||
+        t === 'messages prives' ||
+        t === 'messages privés' ||
+        t === 'private message' ||
+        t === 'private messages'
+      );
+    }
+
+    function extractNameFromContainer(container) {
+      if (!container) return '';
+      const nameHost = container.querySelector('[class*="name__"] [class*="overflowTooltip"]')
+        || container.querySelector('[class*="overflowTooltip"]')
+        || container.querySelector('[data-text-variant]')
+        || container;
+      if (!nameHost) return '';
+
+      const clone = nameHost.cloneNode(true);
+      clone.querySelectorAll(
+        '[class*="chiplet"], [class*="clanTag"], [class*="tagText"], [class*="badge"], [class*="hiddenVisually"], img, svg'
+      ).forEach(n => n.remove());
+
+      const name = normalizeConvName(clone.textContent || '');
+      return isGenericConversationLabel(name) ? '' : name;
+    }
+
+    function getConversationInfoFromDom(channelId, guildId) {
+      let name = '';
+      let avatar = '';
+
+      const header = Array.from(document.querySelectorAll('#app-mount header')).find(isVisible) || null;
+      if (header) {
+        // Target DM header content first to avoid generic "Messages privés" fallback while scrolling.
+        const dmTitle = header.querySelector('.children__9293f .titleWrapper__9293f h1 span:not([class*="hiddenVisually"])')
+          || header.querySelector('[class*="children__"] [class*="titleWrapper__"] h1 span:not([class*="hiddenVisually"])');
+        if (dmTitle) {
+          const dmName = normalizeConvName(dmTitle.textContent || '');
+          if (!isGenericConversationLabel(dmName)) name = dmName;
+        }
+        const dmAvatar = header.querySelector('.children__9293f [class*="avatarStack"] img')
+          || header.querySelector('[class*="children__"] [class*="avatarStack"] img');
+        if (dmAvatar?.src && isValidDiscordAvatarUrl(dmAvatar.src)) avatar = dmAvatar.src;
+
+        const heading = header.querySelector('h1, h2, [role="heading"]');
+        if (!name) name = extractNameFromContainer(heading || header);
+      }
+
+      // Try exact conversation row from sidebar (works without token in many layouts)
+      if ((!name || !avatar) && channelId) {
+        const hrefPart = `/channels/${guildId || '@me'}/${channelId}`;
+        const row = Array.from(document.querySelectorAll(`#app-mount a[href*="${hrefPart}"]`)).find(isVisible) || null;
+        if (row) {
+          name = name || extractNameFromContainer(row);
+          const rowImg = Array.from(row.querySelectorAll('img')).find(i => isValidDiscordAvatarUrl(i.src));
+          if (rowImg?.src) avatar = avatar || rowImg.src;
+        }
+      }
+
+      if (!name) {
+        const selected = Array.from(document.querySelectorAll('#app-mount [aria-selected="true"]')).find(isVisible) || null;
+        if (selected) {
+          name = extractNameFromContainer(selected);
+
+          const img = Array.from(selected.querySelectorAll('img')).find(i => isValidDiscordAvatarUrl(i.src));
+          if (img?.src) avatar = img.src;
+        }
+      }
+
+      if (!avatar) {
+        const header = Array.from(document.querySelectorAll('#app-mount header')).find(isVisible) || null;
+        const img = header ? Array.from(header.querySelectorAll('img')).find(i => isValidDiscordAvatarUrl(i.src)) : null;
+        if (img?.src) avatar = img.src;
+      }
+
+      return { name, avatar };
+    }
+
+    function getAuthTokenForConv() {
+      try {
+        const v = $('input#token')?.value?.trim();
+        if (v) return v;
+      } catch {}
+      try {
+        const v = undiscordCore?.options?.authToken;
+        if (typeof v === 'string' && v.trim()) return v.trim();
+      } catch {}
+      return '';
+    }
+
+    async function fetchSelfUserId(token) {
+      const r = await fetch('https://discord.com/api/v9/users/@me', {
+        headers: { Authorization: token }
+      });
+      if (!r.ok) throw new Error('GET /users/@me failed: ' + r.status);
+      const me = await r.json();
+      return me?.id || '';
+    }
+
+    function cdnDefaultAvatarUrl(userId, discriminator, size = 32) {
+      try {
+        const disc = String(discriminator ?? '0');
+        if (disc === '0') {
+          const mod = Number(BigInt(userId) >> 22n) % 6;
+          return `https://cdn.discordapp.com/embed/avatars/${mod}.png?size=${size}`;
+        }
+        const idx = parseInt(disc, 10) % 5;
+        return `https://cdn.discordapp.com/embed/avatars/${idx}.png?size=${size}`;
+      } catch {
+        return `https://cdn.discordapp.com/embed/avatars/0.png?size=${size}`;
+      }
+    }
+
+    const convCache = new Map();
+    let convFetchPromise = null;
+    async function fetchConversationInfoFromApi(channelId) {
+      const token = getAuthTokenForConv();
+      if (!token || !channelId) return null;
+      const key = `ch:${channelId}`;
+      if (convCache.has(key)) return convCache.get(key);
+      if (convFetchPromise) return convFetchPromise;
+
+      convFetchPromise = (async () => {
+        try {
+          const [chResp, selfId] = await Promise.all([
+            fetch(`https://discord.com/api/v9/channels/${channelId}`, { headers: { Authorization: token } }),
+            fetchSelfUserId(token)
+          ]);
+          if (!chResp.ok) return null;
+          const data = await chResp.json();
+          const recips = Array.isArray(data?.recipients) ? data.recipients : [];
+          let other = null;
+          if (selfId) other = recips.find(r => r?.id && r.id !== selfId) || null;
+          if (!other && recips.length) other = recips[0];
+
+          const name = normalizeConvName(other?.global_name || other?.username || data?.name || '');
+          let avatar = '';
+          if (other?.id) {
+            if (other?.avatar) {
+              const ext = String(other.avatar).startsWith('a_') ? 'gif' : 'png';
+              avatar = `https://cdn.discordapp.com/avatars/${other.id}/${other.avatar}.${ext}?size=32`;
+            } else {
+              avatar = cdnDefaultAvatarUrl(other.id, other?.discriminator ?? '0', 32);
+            }
+          }
+          const info = { name, avatar };
+          convCache.set(key, info);
+          return info;
+        } catch {
+          return null;
+        } finally {
+          convFetchPromise = null;
+        }
+      })();
+
+      return convFetchPromise;
+    }
+
+    const convStable = { name: '', avatar: '' };
+    let badgeTimer = null;
+    let lastBadgeRunAt = 0;
+    const BADGE_MIN_INTERVAL_MS = 250;
+    let lastBadgeWarnNoTokenAt = 0;
+    function scheduleConversationBadgeUpdate(delayMs = 0) {
+      clearTimeout(badgeTimer);
+      badgeTimer = setTimeout(() => {
+        const elapsed = Date.now() - lastBadgeRunAt;
+        if (elapsed < BADGE_MIN_INTERVAL_MS) {
+          return scheduleConversationBadgeUpdate(BADGE_MIN_INTERVAL_MS - elapsed);
+        }
+        lastBadgeRunAt = Date.now();
+        updateConversationBadgeNow();
+      }, Math.max(0, delayMs));
+    }
+
+    function updateConversationBadgeNow() {
+      if (!ui.convBadge || !ui.convName || !ui.convAvatar) return;
+      const c = $('input#channelId')?.value?.trim() || getChannelId({ silent: true }) || '';
+      const g = $('input#guildId')?.value?.trim() || getGuildId({ silent: true }) || '';
+      const isDm = g === '@me';
+
+      if (!c) {
+        ui.convBadge.style.display = 'none';
+        return;
+      }
+
+      const dom = getConversationInfoFromDom(c, g);
+      const name = dom.name || convStable.name || (isDm ? 'DM' : `Channel ${c}`);
+      const avatar = dom.avatar || convStable.avatar || '';
+
+      ui.convBadge.style.display = '';
+      ui.convName.textContent = name || 'Conversation';
+      if (avatar) {
+        ui.convAvatar.src = avatar;
+        ui.convAvatar.style.display = '';
+      } else {
+        ui.convAvatar.style.display = 'none';
+      }
+      if (name) convStable.name = name;
+      if (avatar) convStable.avatar = avatar;
+
+      if (!isDm) return;
+      const token = getAuthTokenForConv();
+      if (!token) {
+        const now = Date.now();
+        if (now - lastBadgeWarnNoTokenAt > 15000) {
+          lastBadgeWarnNoTokenAt = now;
+          log.warn('conv:badge:no-token');
+        }
+        return;
+      }
+      fetchConversationInfoFromApi(c).then((info) => {
+        if (!info) return;
+        const nextName = info.name || ui.convName.textContent || 'DM';
+        ui.convName.textContent = nextName;
+        if (info.avatar) {
+          ui.convAvatar.src = info.avatar;
+          ui.convAvatar.style.display = '';
+        }
+        convStable.name = nextName;
+        if (info.avatar) convStable.avatar = info.avatar;
+      });
+    }
+
 
     function toggleWindow() {
       const isOpen = ui.undiscordWindow.style.display !== 'none';
@@ -2263,6 +2590,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
         // Auto-fill only on open, and only if not running
         safeAutofillFields();
+        scheduleConversationBadgeUpdate();
       }
     }
 
@@ -2272,11 +2600,15 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  ui.autoScroll = $('#autoScroll');
 	  ui.progressMain = $('#progressBar');
 	  ui.progressIcon = ui.undiscordBtn.querySelector('progress');
+	  ui.progressBarPercent = $('#progressBarPercent');
 	  ui.percent = $('#progressPercent');
     ui.verboseMode = $('#verboseMode');
     ui.hideAuthorText = $('#hideAuthorText');
     ui.hideMessageText = $('#hideMessageText');
     ui.redact = $('#redact');
+    ui.convBadge = $('#convBadge');
+    ui.convName = $('#convName');
+    ui.convAvatar = $('#convAvatar');
     function applyVerboseUI() {
       const on = !!ui.verboseMode.checked;
       ui.undiscordWindow.classList.toggle('verbose', on);
@@ -2289,6 +2621,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
     ui.verboseMode.onchange = applyVerboseUI;
     applyVerboseUI();
+    scheduleConversationBadgeUpdate();
 
 
 
@@ -2303,10 +2636,6 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       logStore.verbose = [];
     };
 	  $('button#getAuthor').onclick = () => $('input#authorId').value = getAuthorId();
-	  $('button#getGuild').onclick = () => {
-	    const guildId = $('input#guildId').value = getGuildId();
-	    if (guildId === '@me') $('input#channelId').value = getChannelId();
-	  };
     $('button#getGuild').onclick = () => {
       const guildInput = $('input#guildId');
       const channelInput = $('input#channelId');
@@ -2318,6 +2647,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
           const c = getChannelId(); // already shows alert if not found
           if (c) channelInput.value = c;
         }
+        scheduleConversationBadgeUpdate();
       }
     };
 
@@ -2330,6 +2660,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
       const g = getGuildId(); // already shows alert if not found
       if (g) guildInput.value = g;
+      scheduleConversationBadgeUpdate();
     };
 
     let savedHideAuthor = false;
@@ -2431,6 +2762,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  };
 	  $('button#getToken').onclick = async () => {
 	    $('input#token').value = await fillToken();
+      scheduleConversationBadgeUpdate();
 	  };
 
 	  // sync delays
@@ -2650,6 +2982,8 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
 	    ui.undiscordBtn.classList.add('running');
 	    ui.progressMain.style.display = 'block';
+	    ui.progressBarPercent.style.display = 'block';
+	    ui.progressBarPercent.textContent = '0%';
 	    ui.percent.style.display = 'block';
 	  };
 
@@ -2665,6 +2999,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    const elapsed = msToHMS(Date.now() - stats.startTime.getTime());
 	    const remaining = msToHMS(stats.etr);
 	    ui.percent.innerHTML = `${percent} (${value}/${max}) Elapsed: ${elapsed} Remaining: ${remaining}`;
+      ui.progressBarPercent.textContent = percent || '...';
 
 	    ui.progressIcon.value = value;
 	    ui.progressMain.value = value;
@@ -2696,6 +3031,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
       $('#stop').disabled = true;
       ui.undiscordBtn.classList.remove('running');
       ui.progressMain.style.display = 'none';
+      ui.progressBarPercent.style.display = 'none';
       ui.percent.style.display = 'none';
 
       // ✅ Normal completion: green bar + success message
@@ -2733,10 +3069,34 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
 	async function startAction() {
 	  console.log(PREFIX, 'startAction');
+
+    // Ensure IDs are refreshed right before validation/start.
+    // NOTE: this function runs outside initUI scope, so we can't call safeAutofillFields() here.
+    const authorInput = $('input#authorId');
+    const guildInput = $('input#guildId');
+    const channelInput = $('input#channelId');
+    if (!authorInput.value.trim()) {
+      try {
+        const v = getAuthorId();
+        if (v) authorInput.value = v;
+      } catch {}
+    }
+    if (!guildInput.value.trim()) {
+      const v = getGuildId({ silent: true });
+      if (v) guildInput.value = v;
+    }
+    if (!channelInput.value.trim()) {
+      const v = getChannelId({ silent: true });
+      if (v) channelInput.value = v;
+    }
+
 	  // general
-	  const authorId = $('input#authorId').value.trim();
-	  const guildId = $('input#guildId').value.trim();
-	  const channelIds = $('input#channelId').value.trim().split(/\s*,\s*/);
+	  const authorId = authorInput.value.trim();
+	  const guildId = guildInput.value.trim() || (getGuildId({ silent: true }) || '');
+	  const channelValue = channelInput.value.trim() || (getChannelId({ silent: true }) || '');
+	  const channelIds = channelValue.split(/\s*,\s*/).filter(Boolean);
+    if (guildId && !guildInput.value.trim()) guildInput.value = guildId;
+    if (channelValue && !channelInput.value.trim()) channelInput.value = channelValue;
 	  const includeNsfw = $('input#includeNsfw').checked;
 	  // filter
 	  const content = $('input#search').value.trim();
@@ -2756,10 +3116,20 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
 	  // token
 	  const authToken = $('input#token').value.trim() || await fillToken();
+    if (authToken && !$('input#token').value.trim()) {
+      $('input#token').value = authToken;
+    }
 	  if (!authToken) return; // get token already logs an error.
 
 	  // validate input
-	  if (!guildId) return log.error('You must fill the "Server ID" field!');
+	  if (!guildId) {
+      alert('Could not find the Server ID. Open a server/DM and click "current", then retry.');
+      return log.error('You must fill the "Server ID" field!');
+    }
+    if (!channelIds.length) {
+      alert('Could not find the Channel ID. Open a channel/DM and click "current", then retry.');
+      return log.error('You must fill the "Channel ID" field!');
+    }
 
 	  // clear logArea
 	  ui.logArea.innerHTML = '';
