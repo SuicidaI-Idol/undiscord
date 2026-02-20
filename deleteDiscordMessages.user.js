@@ -118,23 +118,13 @@
 #undiscord #progressBarPercent {
   width: 56px;
   min-width: 56px;
-  padding: 2px 0 0;
-  height: 24px;
-  display: inline-flex;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
   font-size: 13px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
   text-align: center;
   color: var(--u-text);
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 999px;
 }
 #undiscord .footer { cursor: se-resize; padding-right: 30px; }
 #undiscord .footer #progressPercent { padding: 0 1em; font-size: small; color: var(--interactive-muted); flex-grow: 1; }
@@ -340,24 +330,27 @@ var undiscordUiCss = (`
 #undiscord .convBadge{
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 8px 8px;
-  margin-right: 8px;
+  gap: 6px;
+  padding: 0 10px 0 3px;
+  margin-right: 6px;
+  margin-bottom: 4px;
   border-radius: 999px;
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.12);
-  max-width: 420px;
+  height: 38px;
+  box-sizing: border-box;
+  max-width: 280px;
   overflow: hidden;
 }
 #undiscord .convBadge img{
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   flex: 0 0 auto;
   box-shadow: 0 0 0 1px rgba(255,255,255,.18);
 }
 #undiscord .convBadge .convName{
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--u-text) !important;
   padding-right: 2px;
@@ -401,6 +394,8 @@ var undiscordUiCss = (`
 }
 #undiscord #progressBarPercent{
   color: rgba(255,255,255,.92) !important;
+  background: none !important;
+  border: none !important;
 }
 /* Hide authorID */
 #undiscord.hide-author #authorId,
@@ -953,7 +948,7 @@ var undiscordUiCss = (`
               <span id="progressBarPercent" style="display:none;">0%</span>
             </div>
 
-            <div class="doneBanner" id="doneBanner">✅ Terminé : suppression terminée avec succès.</div>
+            <div class="doneBanner" id="doneBanner">Done: deletion completed successfully.</div>
           </div>
 
             <pre id="logArea" class="logarea scroll">
@@ -1057,6 +1052,8 @@ var undiscordUiCss = (`
 	    _skippedMessages: [],
       _skippedIds: new Set(),
       _skippedUniqueCount: 0,
+      _avgDeletePerPage: 25,
+      _deletePageSamples: 0,
 
 	  };
 
@@ -1067,6 +1064,8 @@ var undiscordUiCss = (`
 	    lastPing: null, // the most recent ping
 	    avgPing: null, // average ping used to calculate the estimated remaining time
 	    etr: 0,
+      pendingWaitUntilTs: 0,
+      _etrLastUpdateTs: 0,
 	  };
 
 	  // events
@@ -1090,10 +1089,23 @@ var undiscordUiCss = (`
 	      _skippedMessages: [],
         _skippedIds: new Set(),
         _skippedUniqueCount: 0,
+        _avgDeletePerPage: 25,
+        _deletePageSamples: 0,
 	    };
 
 	    this.options.askForConfirmation = true;
 	  }
+
+    async waitWithTracking(ms) {
+      const waitMs = Math.max(0, Number(ms) || 0);
+      if (waitMs <= 0) return;
+      this.stats.pendingWaitUntilTs = Date.now() + waitMs;
+      try {
+        await wait(waitMs);
+      } finally {
+        this.stats.pendingWaitUntilTs = 0;
+      }
+    }
 
     /** Re-check immediately after deletion to detect completion without waiting searchDelay */
     async quickCheckIfDone() {
@@ -1165,6 +1177,9 @@ var undiscordUiCss = (`
 
 	    this.state.running = true;
 	    this.stats.startTime = new Date();
+      this.stats.etr = 0;
+      this.stats.pendingWaitUntilTs = 0;
+      this.stats._etrLastUpdateTs = Date.now();
 
 	    log.success(`Started at ${this.stats.startTime.toLocaleString()}`);
       log.debug(
@@ -1234,7 +1249,7 @@ var undiscordUiCss = (`
           if (target > 0 && processed < target && this.state._emptyPageStreak <= 5) {
             const waitMs = Math.max(250, Number(this.options.searchDelay) || 0);
             log.warn(`Search returned an empty page but only processed ${processed}/${target}. Waiting ${Math.round(waitMs)}ms and retrying...`);
-            await wait(waitMs);
+            await this.waitWithTracking(waitMs);
             continue;
           }
 
@@ -1253,7 +1268,7 @@ var undiscordUiCss = (`
             log.verb('Skipping wait (page had only skipped / non-deletable messages).');
           } else {
             log.verb(`Waiting ${(this.options.searchDelay / 1000).toFixed(2)}s before next page...`);
-            await wait(this.options.searchDelay);
+            await this.waitWithTracking(this.options.searchDelay);
           }
         }
 
@@ -1276,7 +1291,67 @@ var undiscordUiCss = (`
 
 	  /** Calculate the estimated time remaining based on the current stats */
 	  calcEtr() {
-	    this.stats.etr = (this.options.searchDelay * Math.round(this.state.grandTotal / 25)) + ((this.options.deleteDelay + this.stats.avgPing) * this.state.grandTotal);
+      const now = Date.now();
+      const dtMs = Math.max(16, now - (this.stats._etrLastUpdateTs || now));
+      this.stats._etrLastUpdateTs = now;
+
+      const processed = this.state.delCount + this.state.failCount;
+      const effectiveTotal = Math.max(0, this.state.grandTotal - (this.state._skippedUniqueCount || 0));
+      const remainingMessages = Math.max(0, effectiveTotal - processed);
+
+      const deleteDelay = Math.max(0, Number(this.options.deleteDelay) || 0);
+      const searchDelay = Math.max(0, Number(this.options.searchDelay) || 0);
+      const avgPing = Math.max(0, Number(this.stats.avgPing) || 0);
+      const elapsedMs = Math.max(0, Date.now() - this.stats.startTime.getTime());
+      const pendingWaitMs = Math.max(0, Number(this.stats.pendingWaitUntilTs || 0) - Date.now());
+
+      // Model-based ETA: account for algorithm-imposed waits.
+      const deletePhaseMs = remainingMessages * (deleteDelay + avgPing);
+      const avgDeletePerPage = Math.max(1, Math.min(25, Number(this.state._avgDeletePerPage) || 25));
+      const remainingSearchPages = remainingMessages > 0 ? Math.ceil(remainingMessages / avgDeletePerPage) : 0;
+      const searchPhaseMs = remainingSearchPages * searchDelay;
+      const throttledRatio = elapsedMs > 0
+        ? Math.max(0, Math.min(0.8, this.stats.throttledTotalTime / elapsedMs))
+        : 0;
+      const modeledMs = (deletePhaseMs + searchPhaseMs) * (1 + throttledRatio);
+
+      // Observed ETA: uses real throughput so pauses/rate-limits are naturally reflected.
+      let observedMs = modeledMs;
+      if (processed > 0 && elapsedMs > 0) {
+        const observedMsPerMsg = elapsedMs / processed;
+        observedMs = observedMsPerMsg * remainingMessages;
+      }
+
+      // Hybrid ETA:
+      // - early run: trust model (not enough data)
+      // - later run: trust observed throughput more
+      const confidenceObserved = Math.max(0, Math.min(1, processed / 50));
+      const hybridMs = (modeledMs * (1 - confidenceObserved)) + (observedMs * confidenceObserved);
+
+      // Inertial ETA:
+      // 1) target floor by known pending wait
+      // 2) cap how fast ETA can move (up/down) per second
+      // 3) EWMA smoothing with ~3s time constant
+      let targetMs = Math.max(0, Math.max(pendingWaitMs, hybridMs));
+      const currentMs = Math.max(0, Number(this.stats.etr) || 0);
+
+      if (currentMs > 0) {
+        const dtSec = dtMs / 1000;
+        const maxRise = Math.max(1200 * dtSec, currentMs * 0.30 * dtSec); // +30%/s max
+        const maxDrop = Math.max(900 * dtSec, currentMs * 0.18 * dtSec);  // -18%/s max
+        if (targetMs > currentMs) {
+          targetMs = Math.min(targetMs, currentMs + maxRise);
+        } else {
+          targetMs = Math.max(targetMs, currentMs - maxDrop);
+        }
+      }
+
+      if (currentMs > 0) {
+        const alpha = 1 - Math.exp(-(dtMs / 3000)); // more inertia
+        this.stats.etr = currentMs + ((targetMs - currentMs) * alpha);
+      } else {
+        this.stats.etr = targetMs;
+      }
 	  }
 
 	  /** As for confirmation in the beggining process */
@@ -1365,7 +1440,7 @@ var undiscordUiCss = (`
           const delay = Math.min(30000, base * Math.pow(1.6, networkAttempt - 1)) + Math.floor(Math.random() * 250);
 
           log.warn(`NetworkError on search (attempt ${networkAttempt}/${max}). Retrying in ${Math.round(delay)}ms...`, msg);
-          await wait(delay);
+          await this.waitWithTracking(delay);
           continue;
         }
       }
@@ -1378,7 +1453,7 @@ var undiscordUiCss = (`
 	      this.stats.throttledCount++;
 	      this.stats.throttledTotalTime += w;
 	      log.warn(`This channel isn't indexed yet. Waiting ${w}ms for discord to index it...`);
-	      await wait(w);
+	      await this.waitWithTracking(w);
 	      return await this.search();
 	    }
 
@@ -1396,7 +1471,7 @@ var undiscordUiCss = (`
 	        this.printStats();
 	        log.verb(`Cooling down for ${w * 2}ms before retrying...`);
 
-	        await wait(w * 2);
+	        await this.waitWithTracking(w * 2);
 	        return await this.search();
 	      }
 	      else {
@@ -1481,11 +1556,19 @@ var undiscordUiCss = (`
 
 	    this.state._messagesToDelete = messagesToDelete;
 	    this.state._skippedMessages = skippedMessages;
+      if (Array.isArray(discoveredMessages) && discoveredMessages.length > 0) {
+        this.state._deletePageSamples = (this.state._deletePageSamples || 0) + 1;
+        const prev = Number(this.state._avgDeletePerPage) || 25;
+        const sample = Math.max(0, Math.min(25, messagesToDelete.length));
+        const alpha = 0.2; // keep a stable trend, react quickly enough to filter changes
+        this.state._avgDeletePerPage = prev + ((sample - prev) * alpha);
+      }
 
 	    console.log(PREFIX$1, 'filterResponse', {
         grandTotal: this.state.grandTotal,
         skippedUnique: this.state._skippedUniqueCount,
         effectiveTotal: Math.max(0, this.state.grandTotal - this.state._skippedUniqueCount),
+        avgDeletePerPage: Number(this.state._avgDeletePerPage || 0).toFixed(2),
         pageMessages: data?.messages?.length ?? 0,
         toDelete: this.state._messagesToDelete.length,
         skippedPage: this.state._skippedMessages.length,
@@ -1520,7 +1603,7 @@ var undiscordUiCss = (`
 	        if (result === 'RETRY') {
 	          attempt++;
 	          log.verb(`Retrying in ${this.options.deleteDelay}ms... (${attempt}/${this.options.maxAttempt})`);
-	          await wait(this.options.deleteDelay);
+	          await this.waitWithTracking(this.options.deleteDelay);
 	        }
 	        else break;
 	      }
@@ -1528,7 +1611,7 @@ var undiscordUiCss = (`
 	      this.calcEtr();
 	      if (this.onProgress) this.onProgress(this.state, this.stats);
 
-	      await wait(this.options.deleteDelay);
+	      await this.waitWithTracking(this.options.deleteDelay);
 	    }
 	  }
 
@@ -1562,7 +1645,7 @@ var undiscordUiCss = (`
 	        log.warn(`Being rate limited by the API for ${w}ms! Adjusted delete delay to ${this.options.deleteDelay}ms.`);
 	        this.printStats();
 	        log.verb(`Cooling down for ${w * 2}ms before retrying...`);
-	        await wait(w * 2);
+	        await this.waitWithTracking(w * 2);
 	        return 'RETRY';
 	      } else {
 	        const body = await resp.text();
@@ -2347,20 +2430,12 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
     function normalizeConvName(text) {
       return String(text || '')
-        .replace(/\s*\((?:message privé|message prive|private message)\)\s*$/i, '')
         .trim();
     }
 
     function isGenericConversationLabel(text) {
-      const t = normalizeConvName(text).toLowerCase();
-      return (
-        t === 'message prive' ||
-        t === 'message privé' ||
-        t === 'messages prives' ||
-        t === 'messages privés' ||
-        t === 'private message' ||
-        t === 'private messages'
-      );
+      const t = normalizeConvName(text);
+      return !t || /^[#@]?$/.test(t) || /^\d+$/.test(t);
     }
 
     function extractNameFromContainer(container) {
@@ -2386,7 +2461,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
       const header = Array.from(document.querySelectorAll('#app-mount header')).find(isVisible) || null;
       if (header) {
-        // Target DM header content first to avoid generic "Messages privés" fallback while scrolling.
+        // Prefer DM header content first to avoid generic header fallback while scrolling.
         const dmTitle = header.querySelector('.children__9293f .titleWrapper__9293f h1 span:not([class*="hiddenVisually"])')
           || header.querySelector('[class*="children__"] [class*="titleWrapper__"] h1 span:not([class*="hiddenVisually"])');
         if (dmTitle) {
@@ -2970,7 +3045,76 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
   }
 
 
-	function setupUndiscordCore() {
+function setupUndiscordCore() {
+    let progressTicker = null;
+    let displayedRemainingMs = 0;
+    let lastRemainingUiUpdateTs = 0;
+
+    function getUiStableRemaining(rawRemainingMs) {
+      const now = Date.now();
+      const raw = Math.max(0, Number(rawRemainingMs) || 0);
+
+      if (!displayedRemainingMs) {
+        displayedRemainingMs = raw;
+        lastRemainingUiUpdateTs = now;
+      }
+
+      const elapsedSinceUiUpdate = now - lastRemainingUiUpdateTs;
+      const minUiIntervalMs = 1800; // avoid visual jitter
+      const significantDelta = Math.max(5000, displayedRemainingMs * 0.10);
+      const shouldUpdate =
+        elapsedSinceUiUpdate >= minUiIntervalMs ||
+        Math.abs(raw - displayedRemainingMs) >= significantDelta;
+
+      if (shouldUpdate) {
+        const alpha = raw > displayedRemainingMs ? 0.22 : 0.35;
+        displayedRemainingMs = displayedRemainingMs + ((raw - displayedRemainingMs) * alpha);
+
+        const step =
+          displayedRemainingMs >= 3600000 ? 60000 :
+          displayedRemainingMs >= 600000 ? 30000 :
+          displayedRemainingMs >= 120000 ? 10000 : 5000;
+
+        displayedRemainingMs = Math.max(0, Math.round(displayedRemainingMs / step) * step);
+        lastRemainingUiUpdateTs = now;
+      }
+
+      return displayedRemainingMs;
+    }
+
+    function renderProgress(state, stats) {
+      const value = state.delCount + state.failCount;
+      let max = Math.max(0, state.grandTotal - (state._skippedUniqueCount || 0));
+      max = Math.max(max, value, 0);
+
+      const percent = value >= 0 && max ? Math.round(value / max * 100) + '%' : '';
+      const elapsedMs = stats?.startTime ? (Date.now() - stats.startTime.getTime()) : 0;
+      const elapsed = msToHMS(Math.max(0, elapsedMs));
+      const remaining = msToHMS(getUiStableRemaining(stats?.etr));
+
+      ui.percent.innerHTML = `${percent} (${value}/${max}) Elapsed: ${elapsed} Remaining: ${remaining}`;
+      ui.progressBarPercent.textContent = percent || '...';
+
+      ui.progressIcon.value = value;
+      ui.progressMain.value = value;
+
+      if (max) {
+        ui.progressIcon.setAttribute('max', max);
+        ui.progressMain.setAttribute('max', max);
+      } else {
+        ui.progressIcon.removeAttribute('value');
+        ui.progressMain.removeAttribute('value');
+        ui.percent.innerHTML = '...';
+      }
+
+      const searchDelayInput = $('input#searchDelay');
+      searchDelayInput.value = undiscordCore.options.searchDelay;
+      $('div#searchDelayValue').textContent = undiscordCore.options.searchDelay + 'ms';
+
+      const deleteDelayInput = $('input#deleteDelay');
+      deleteDelayInput.value = undiscordCore.options.deleteDelay;
+      $('div#deleteDelayValue').textContent = undiscordCore.options.deleteDelay + 'ms';
+    }
 
 	  undiscordCore.onStart = (state, stats) => {
       ui.undiscordWindow.classList.remove('finished');
@@ -2985,47 +3129,29 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	    ui.progressBarPercent.style.display = 'block';
 	    ui.progressBarPercent.textContent = '0%';
 	    ui.percent.style.display = 'block';
+      displayedRemainingMs = 0;
+      lastRemainingUiUpdateTs = 0;
+
+      if (progressTicker) clearInterval(progressTicker);
+      progressTicker = setInterval(() => {
+        if (!undiscordCore.state.running) return;
+        undiscordCore.calcEtr();
+        renderProgress(undiscordCore.state, undiscordCore.stats);
+      }, 500);
 	  };
 
 	  undiscordCore.onProgress = (state, stats) => {
-      // console.log(PREFIX, 'onProgress', state, stats);
-      const value = state.delCount + state.failCount;
-      let max = Math.max(0, state.grandTotal - (state._skippedUniqueCount || 0));
-      max = Math.max(max, value, 0);
-
-
-	    // status bar
-	    const percent = value >= 0 && max ? Math.round(value / max * 100) + '%' : '';
-	    const elapsed = msToHMS(Date.now() - stats.startTime.getTime());
-	    const remaining = msToHMS(stats.etr);
-	    ui.percent.innerHTML = `${percent} (${value}/${max}) Elapsed: ${elapsed} Remaining: ${remaining}`;
-      ui.progressBarPercent.textContent = percent || '...';
-
-	    ui.progressIcon.value = value;
-	    ui.progressMain.value = value;
-
-	    // indeterminate progress bar
-	    if (max) {
-	      ui.progressIcon.setAttribute('max', max);
-	      ui.progressMain.setAttribute('max', max);
-	    } else {
-	      ui.progressIcon.removeAttribute('value');
-	      ui.progressMain.removeAttribute('value');
-	      ui.percent.innerHTML = '...';
-	    }
-
-	    // update delays
-	    const searchDelayInput = $('input#searchDelay');
-	    searchDelayInput.value = undiscordCore.options.searchDelay;
-	    $('div#searchDelayValue').textContent = undiscordCore.options.searchDelay+'ms';
-
-	    const deleteDelayInput = $('input#deleteDelay');
-	    deleteDelayInput.value = undiscordCore.options.deleteDelay;
-	    $('div#deleteDelayValue').textContent = undiscordCore.options.deleteDelay+'ms';
+      renderProgress(state, stats);
 	  };
 
     undiscordCore.onStop = (state, stats) => {
       console.log(PREFIX, 'onStop', state, stats);
+      if (progressTicker) {
+        clearInterval(progressTicker);
+        progressTicker = null;
+      }
+      displayedRemainingMs = 0;
+      lastRemainingUiUpdateTs = 0;
 
       $('#start').disabled = false;
       $('#stop').disabled = true;
@@ -3183,6 +3309,6 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 
 	// ---- END Undiscord ----
 
-	initUI();
+initUI();
 
 })();
