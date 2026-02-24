@@ -921,6 +921,9 @@ var undiscordUiCss = (`
                     <div class="sectionDescription">
                         <label class="row"><input id="verboseMode" type="checkbox"> Verbose console</label>
                     </div>
+                    <div class="sectionDescription">
+                        <label class="row"><input id="previewMode" type="checkbox"> Preview mode (no delete)</label>
+                    </div>
                 </fieldset>
             </details>
             <hr>
@@ -1031,6 +1034,7 @@ var undiscordUiCss = (`
 	    pattern: null, // Only delete messages that match the regex (insensitive)
 	    searchDelay: null, // Delay each time we fetch for more messages
 	    deleteDelay: null, // Delay between each delete operation
+      previewMode: false, // Simulate deletions without calling DELETE
 	    maxAttempt: 2, // Attempts to delete a single message if it fails
 	    askForConfirmation: true,
       retryOnNetworkError: true,
@@ -1227,6 +1231,10 @@ var undiscordUiCss = (`
 	        }
 
 	        await this.deleteMessagesFromList();
+          if (this.options.previewMode) {
+            // In preview mode nothing is removed server-side, so we must move offset forward.
+            this.state.offset += this.state._messagesToDelete.length + this.state._skippedMessages.length;
+          }
           // Discord search index can lag; wait searchDelay so next search isn't empty/stale.
           skipWaitOnce = false;
 	      }
@@ -1363,6 +1371,7 @@ var undiscordUiCss = (`
 
 	    const answer = await ask(
 	      `Do you want to delete ~${this.state.grandTotal} messages? (Estimated time: ${msToHMS(this.stats.etr)})` +
+        (this.options.previewMode ? '\n[Preview mode ON: no message will actually be deleted.]' : '') +
 	      '(The actual number of messages may be less, depending if you\'re using filters to skip some messages)' +
 	      '\n\n---- Preview ----\n' +
 	      preview
@@ -1616,6 +1625,11 @@ var undiscordUiCss = (`
 	  }
 
 	  async deleteMessage(message) {
+      if (this.options.previewMode) {
+        this.state.delCount++;
+        return 'OK';
+      }
+
 	    const API_DELETE_URL = `https://discord.com/api/v9/channels/${message.channel_id}/messages/${message.id}`;
 	    let resp;
 	    try {
@@ -2192,6 +2206,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  percent: null,
 
     verboseMode: null,
+    previewMode: null,
     hideAuthorText: null,
     hideMessageText: null,
     redact: null,
@@ -2678,6 +2693,7 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
 	  ui.progressBarPercent = $('#progressBarPercent');
 	  ui.percent = $('#progressPercent');
     ui.verboseMode = $('#verboseMode');
+    ui.previewMode = $('#previewMode');
     ui.hideAuthorText = $('#hideAuthorText');
     ui.hideMessageText = $('#hideMessageText');
     ui.redact = $('#redact');
@@ -3129,6 +3145,10 @@ function setupUndiscordCore() {
 	    ui.progressBarPercent.style.display = 'block';
 	    ui.progressBarPercent.textContent = '0%';
 	    ui.percent.style.display = 'block';
+
+      if (undiscordCore.options.previewMode) {
+        log.warn('Preview mode enabled: messages are not deleted.');
+      }
       displayedRemainingMs = 0;
       lastRemainingUiUpdateTs = 0;
 
@@ -3166,6 +3186,7 @@ function setupUndiscordCore() {
         const skipped = state._skippedUniqueCount || 0;
         const effectiveMax = Math.max(0, state.grandTotal - skipped);
         const max = Math.max(effectiveMax, total);
+        const isPreview = !!undiscordCore.options.previewMode;
 
         // If this happens, Discord search/index likely returned an empty page too early.
         if (effectiveMax > 0 && total < effectiveMax) {
@@ -3175,9 +3196,12 @@ function setupUndiscordCore() {
           log.warn(msg);
         } else {
           ui.undiscordWindow.classList.add('finished');
-          const msg = `✅ Completed: ${state.delCount} deleted, ${state.failCount} failed. (${total}/${max})`;
+          const msg = isPreview
+            ? `Preview completed: ${state.delCount} simulated deletions, ${state.failCount} failed. (${total}/${max})`
+            : `✅ Completed: ${state.delCount} deleted, ${state.failCount} failed. (${total}/${max})`;
           $('#doneBanner').textContent = msg;
-          log.success(msg);
+          if (isPreview) log.info(msg);
+          else log.success(msg);
         }
       } else {
         // Otherwise, remove "finished" state
@@ -3230,6 +3254,7 @@ function setupUndiscordCore() {
 	  const hasFile = $('input#hasFile').checked;
 	  const includePinned = $('input#includePinned').checked;
 	  const pattern = $('input#pattern').value;
+    const previewMode = $('input#previewMode').checked;
 	  // message interval
 	  const minId = $('input#minId').value.trim();
 	  const maxId = $('input#maxId').value.trim();
@@ -3275,6 +3300,7 @@ function setupUndiscordCore() {
 	    includeNsfw,
 	    includePinned,
 	    pattern,
+      previewMode,
 	    searchDelay,
 	    deleteDelay,
 	    // maxAttempt: 2,
