@@ -196,6 +196,8 @@ var undiscordUiCss = (`
   --u-danger-hover: #d04b4b;
   --u-input: #0c0f15;
   --u-focus: rgba(122,183,255,.35);
+  /* Compact deleted-log global scale (date, text, avatar, etc.) */
+  --u-compact-scale: 1.05;
 
   background: var(--u-bg) !important;
   color: var(--u-text) !important;
@@ -417,8 +419,8 @@ var undiscordUiCss = (`
 
 /* Compact-mode polish when hiding */
 #undiscord.hide-author:not(.verbose) .log-del{
-  grid-template-columns: 88px minmax(0, 1fr) auto;
-  column-gap: 10px;
+  grid-template-columns: calc(88px * var(--u-compact-scale)) minmax(0, 1fr) auto;
+  column-gap: calc(10px * var(--u-compact-scale));
 }
 #undiscord.hide-author:not(.verbose) .log-del img.authorAvatar{ display: none !important; }
 #undiscord.hide-author:not(.verbose) .log-del .head{ display: none; }
@@ -579,9 +581,9 @@ var undiscordUiCss = (`
 
 #undiscord:not(.verbose) .log-del{
   display: grid;
-  grid-template-columns: 88px 24px minmax(0, 1fr) auto;
-  gap: 8px;
-  padding: 8px 12px;
+  grid-template-columns: calc(88px * var(--u-compact-scale)) calc(27px * var(--u-compact-scale)) minmax(0, 1fr) auto;
+  gap: calc(8px * var(--u-compact-scale));
+  padding: calc(8px * var(--u-compact-scale)) calc(12px * var(--u-compact-scale));
   margin: 0 0 2px;
   border-radius: 8px;
   background: rgba(255,255,255,.03);
@@ -594,16 +596,16 @@ var undiscordUiCss = (`
   flex-direction: column;
   align-items: flex-start;
   gap: 0px;
-  min-width: 88px;
+  min-width: calc(88px * var(--u-compact-scale));
   white-space: nowrap;
-  padding: 4px 6px;
+  padding: calc(4px * var(--u-compact-scale)) calc(6px * var(--u-compact-scale));
   border-radius: 6px;
   background: rgba(255,255,255,.04);
   border: 1px solid rgba(255,255,255,.08);
 }
 #undiscord:not(.verbose) .log-del img{
-  width: 22px;
-  height: 22px;
+  width: calc(27px * var(--u-compact-scale));
+  height: calc(27px * var(--u-compact-scale));
   border-radius: 999px;
   flex: 0 0 auto;
   box-shadow: 0 0 0 1px rgba(255,255,255,.18);
@@ -622,7 +624,7 @@ var undiscordUiCss = (`
   padding: 0;
   background: none;
   border: none;
-  font-size: 10.5px;
+  font-size: calc(11.75px * var(--u-compact-scale));
   color: rgba(255,255,255,.82);
   letter-spacing: .02em;
 }
@@ -634,7 +636,7 @@ var undiscordUiCss = (`
   opacity: .7;
 }
 #undiscord:not(.verbose) .log-del .author{
-  font-size: 12px;
+  font-size: calc(13.75px * var(--u-compact-scale));
   color: rgba(255,255,255,.92);
   font-weight: 600;
   white-space: nowrap;
@@ -642,7 +644,7 @@ var undiscordUiCss = (`
   overflow: hidden;
 }
 #undiscord:not(.verbose) .log-del .meta{
-  font-size: 10.5px;
+  font-size: calc(11.75px * var(--u-compact-scale));
   color: rgba(255,255,255,.62);
   letter-spacing: .02em;
   white-space: nowrap;
@@ -654,14 +656,58 @@ var undiscordUiCss = (`
   text-align: right;
 }
 #undiscord:not(.verbose) .log-del .content{
-  font-size: 13px;
+  font-size: calc(13px * var(--u-compact-scale));
+  line-height: 1.35;
   color: rgba(255,255,255,.92);
+}
+#undiscord:not(.verbose) .log-del .content .msgText{
+  font-size: calc(13px * var(--u-compact-scale));
 }
 #undiscord:not(.verbose) .log-del .txt{
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
   min-width: 0;
+}
+#undiscord:not(.verbose) .log-del .attachments{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+#undiscord:not(.verbose) .log-del .attachments img{
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  margin-top: 0;
+  box-shadow: none;
+}
+#undiscord:not(.verbose) .log-del .attachments video{
+  width: 220px;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: #000;
+}
+#undiscord:not(.verbose) .log-del .attachments audio{
+  width: 220px;
+  max-width: 100%;
+}
+#undiscord:not(.verbose) .log-del .attachments .file{
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--u-link);
+  text-decoration: none;
+  max-width: 260px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 `);
@@ -1231,6 +1277,18 @@ var undiscordUiCss = (`
 	        }
 
 	        await this.deleteMessagesFromList();
+
+          // After real deletions, perform an immediate re-check to finish without
+          // waiting for the next full search cycle/searchDelay.
+          if (!this.options.previewMode) {
+            const doneNow = await this.quickCheckIfDone();
+            if (doneNow) {
+              if (isJob) break;
+              this.state.running = false;
+              break;
+            }
+          }
+
           if (this.options.previewMode) {
             // In preview mode nothing is removed server-side, so we must move offset forward.
             this.state.offset += this.state._messagesToDelete.length + this.state._skippedMessages.length;
@@ -1594,13 +1652,15 @@ var undiscordUiCss = (`
         const max = Math.max(this.state.grandTotal, idx);
 
         const meta = `[${idx}/${max}]`;
-        const content = (message.content || '').replace(/\n/g, ' ↵ ').trim() || '[no text]';
+        const content = (message.content || '').replace(/\n/g, ' ↵ ').trim();
 
         log.del({
           author: message.author,
           meta,
           content,
-          timestamp: message.timestamp
+          timestamp: message.timestamp,
+          attachments: Array.isArray(message.attachments) ? message.attachments : [],
+          embeds: Array.isArray(message.embeds) ? message.embeds : [],
         });
 
 
@@ -2709,7 +2769,6 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
         requestAnimationFrame(() => requestAnimationFrame(() => scrollLogToBottom({ smooth: true })));
       }
     }
-
     ui.verboseMode.onchange = applyVerboseUI;
     applyVerboseUI();
     scheduleConversationBadgeUpdate();
@@ -3008,10 +3067,69 @@ body.undiscord-pick-message.after [id^="message-content-"]:hover::after {
     const tag = payload.author ? (payload.author.global_name || payload.author.username || 'Unknown') : 'Unknown';
     const meta = payload.meta || '';
     const content = payload.content || '';
+    const attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+    const embeds = Array.isArray(payload.embeds) ? payload.embeds : [];
+
+    const mediaCandidates = [];
+    const seen = new Set();
+    const addCandidate = (urlRaw, contentType = '', filename = 'file') => {
+      const url = String(urlRaw || '').trim();
+      if (!url) return;
+      if (seen.has(url)) return;
+      seen.add(url);
+      mediaCandidates.push({ url, contentType: String(contentType || '').toLowerCase(), filename: String(filename || 'file') });
+    };
+
+    for (const a of attachments) {
+      addCandidate(a?.proxy_url || a?.url, a?.content_type, a?.filename || 'file');
+    }
+
+    for (const e of embeds) {
+      addCandidate(e?.video?.url || e?.image?.url || e?.thumbnail?.url || e?.url, e?.type || '', e?.title || e?.provider?.name || 'embed');
+    }
+
+    const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+    const contentUrls = String(content).match(urlRegex) || [];
+    for (const u of contentUrls) {
+      addCandidate(u, '', 'link');
+    }
+
+    const mediaHtml = mediaCandidates.map((m) => {
+      const srcRaw = m.url;
+      const src = escapeHTML(srcRaw);
+      const ct = m.contentType;
+      const name = escapeHTML(m.filename);
+      const rawName = String(m.filename || '').toLowerCase();
+      const lowerUrl = srcRaw.toLowerCase();
+
+      const isImage = ct.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/.test(lowerUrl);
+      const isVideo = ct.startsWith('video/') || ct === 'gifv' || /\.(mp4|webm|mov|m4v|avi|mkv)(\?|$)/.test(lowerUrl);
+      const isAudio = ct.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)(\?|$)/.test(lowerUrl);
+      const isGifLikeVideo = isVideo && (
+        ct === 'gifv' ||
+        /\.gifv?(\?|$)/.test(lowerUrl) ||
+        rawName.includes('gif') ||
+        /(?:^|\/\/)(?:media\.)?tenor\.com\//.test(lowerUrl)
+      );
+
+      if (isImage) return `<img src="${src}" alt="${name}">`;
+      if (isGifLikeVideo) return `<video autoplay loop muted playsinline preload="metadata" src="${src}"></video>`;
+      if (isVideo) return `<video controls preload="metadata" src="${src}"></video>`;
+      if (isAudio) return `<audio controls preload="metadata" src="${src}"></audio>`;
+      return '';
+    }).filter(Boolean).join('');
+
+    const visibleText = content.trim();
+    const hasOnlyUrls = visibleText.length > 0 && visibleText.replace(urlRegex, '').trim() === '';
+    const hideUrlTextBecauseMediaIsRendered = !!mediaHtml && hasOnlyUrls;
+    const textHtml = hideUrlTextBecauseMediaIsRendered
+      ? ''
+      : (visibleText ? escapeHTML(visibleText) : (mediaHtml ? '' : '[no text]'));
+    const attachmentsHtml = mediaHtml ? `<div class="attachments">${mediaHtml}</div>` : '';
     // NOTE: logArea is a <pre>; avoid whitespace/newlines which render as extra gaps.
     ui.logArea.insertAdjacentHTML(
       'beforeend',
-      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div></div><img class="authorAvatar" src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author"><span class="authorText">${escapeHTML(tag)}</span><span class="authorHidden">[hidden]</span></div></div><div class="content"><span class="msgText">${escapeHTML(content)}</span><span class="msgHidden">[hidden]</span></div></div><div class="meta">${escapeHTML(meta)}</div></div>`
+      `<div class="log log-del"><div class="stamp"><div class="date"><span class="d">${escapeHTML(date)}</span><span class="t">${escapeHTML(time)}</span></div></div><img class="authorAvatar" src="${avatarUrl}" alt=""><div class="txt"><div class="head"><div class="author"><span class="authorText">${escapeHTML(tag)}</span><span class="authorHidden">[hidden]</span></div></div><div class="content"><span class="msgText">${textHtml}</span><span class="msgHidden">[hidden]</span>${attachmentsHtml}</div></div><div class="meta">${escapeHTML(meta)}</div></div>`
     );
   }
 
