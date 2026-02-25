@@ -1170,9 +1170,16 @@ var undiscordUiCss = (`
 
         const total = this.state._seachResponse?.total_results ?? 0;
         const hasMore = (this.state._messagesToDelete.length > 0) || (this.state._skippedMessages.length > 0);
+        const processed = this.state.delCount + this.state.failCount + (this.state._skippedUniqueCount || 0);
+        const target = this.state.grandTotal || 0;
 
-        // DONE only if Discord reports no results at all
+        // Quick-check can return an empty page while index is still lagging.
+        // Never end early if we still know there should be items to process.
         if (total === 0 || !hasMore) {
+          if (target > 0 && processed < target) {
+            log.warn(`Quick check looked empty but only processed ${processed}/${target}. Continuing normal loop.`);
+            return false;
+          }
           log.verb('Quick check: no more messages returned. Ending now.');
           this.state.endReason = 'DONE';
           this.state.running = false;
